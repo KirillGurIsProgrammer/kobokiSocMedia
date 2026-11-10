@@ -43,6 +43,11 @@ INSTALLED_APPS = [
     "apps.music",
 ]
 
+AUTH_USER_MODEL = "accounts.User"
+LOGIN_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/"
+
 
 # Middleware
 
@@ -86,7 +91,7 @@ TEMPLATES = [
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME", "koboki"),
+        "NAME": os.getenv("DB_NAME", "socnet_local"),
         "USER": os.getenv("DB_USER", "postgres"),
         "PASSWORD": os.getenv("DB_PASSWORD", ""),
         "HOST": os.getenv("DB_HOST", "localhost"),
@@ -126,6 +131,8 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 
 # Email
