@@ -1,0 +1,88 @@
+
+# ==============================
+# Environment & secrets
+# ==============================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets/
+credentials/
+token.json
+credentials.json
+
+# ==============================
+# Python
+# ==============================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ==============================
+# Virtual environments
+# ==============================
+.venv/
+venv/
+env/
+
+# ==============================
+# Django
+# ==============================
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+local_settings.py
+
+# ==============================
+# PostgreSQL & databases
+# ==============================
+*.dump
+*.sql.gz
+*.backup
+
+# ==============================
+# IDE & editors
+# ==============================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ==============================
+# OS
+# ==============================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==============================
+# Logs & temporary files
+# ==============================
+*.log
+logs/
+tmp/
+temp/
+
+# ==============================
+# AI / local models
+# ==============================
+.ollama/
+models/
+*.gguf
+
+# ==============================
+# Build artifacts
+# ==============================
+build/
+dist/
