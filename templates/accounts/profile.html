@@ -1,11 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Профиль {{ profile_user.username }}{% endblock %}
+{% block title %}{{ profile_user.username }} — Koboki{% endblock %}
 
 {% block content %}
 <section class="profile-card">
-    <div class="profile-cover">
-    </div>
+    <div class="profile-cover"></div>
     <div class="profile-content">
         <div class="profile-avatar">
             {% if profile_user.avatar %}
@@ -18,11 +17,34 @@
             <div>
                 <span class="eyebrow">ПРОФИЛЬ</span>
                 <h1>{{ profile_user.username }}</h1>
+                <div class="profile-counts">
+                    <span><strong>{{ followers_count }}</strong> подписчиков</span>
+                    <span><strong>{{ following_count }}</strong> подписок</span>
+                </div>
             </div>
-            {% if user.is_authenticated and user.pk == profile_user.pk %}
-                <a class="button button--outline" href="{% url 'accounts:profile_edit' profile_user.username %}">
-                    <span aria-hidden="true">✎</span> Редактировать
-                </a>
+            {% if user.is_authenticated %}
+                {% if user.pk == profile_user.pk %}
+                    <a class="button button--outline" href="{% url 'accounts:profile_edit' profile_user.username %}">
+                        Редактировать профиль
+                    </a>
+                {% else %}
+                    <div class="profile-actions">
+                        <a class="button button--outline" href="/chat/with/{{ profile_user.username }}/">Написать</a>
+                        {% if is_following %}
+                            <form method="post" action="{% url 'accounts:unfollow' profile_user.username %}">
+                                {% csrf_token %}
+                                <button class="button button--outline" type="submit">Отписаться</button>
+                            </form>
+                        {% else %}
+                            <form method="post" action="{% url 'accounts:follow' profile_user.username %}">
+                                {% csrf_token %}
+                                <button class="button" type="submit">Подписаться</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% else %}
+                <a class="button" href="{% url 'accounts:login' %}?next={{ request.path }}">Войти, чтобы подписаться</a>
             {% endif %}
         </div>
         <div class="profile-bio">
@@ -33,5 +55,25 @@
             {% endif %}
         </div>
     </div>
+</section>
+
+<section class="profile-posts">
+    <div class="section-heading">
+        <div>
+            <span class="eyebrow">АКТИВНОСТЬ</span>
+            <h2>Публикации</h2>
+        </div>
+        {% if user.is_authenticated and user.pk == profile_user.pk %}
+            <a class="button button--small" href="{% url 'feed:post_create' %}">Новый пост <span aria-hidden="true">+</span></a>
+        {% endif %}
+    </div>
+    {% for post in posts %}
+        {% include "feed/_post_card.html" with post=post %}
+    {% empty %}
+        <div class="empty-state">
+            <span class="empty-state-icon" aria-hidden="true">♫</span>
+            <p>Публикаций пока нет.</p>
+        </div>
+    {% endfor %}
 </section>
 {% endblock %}

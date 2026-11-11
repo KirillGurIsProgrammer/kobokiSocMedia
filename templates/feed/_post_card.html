@@ -1,0 +1,49 @@
+<article class="post-card">
+    <header class="post-header">
+        <a class="post-author" href="{% url 'accounts:profile' post.author.username %}">
+            <span class="post-avatar">
+                {% if post.author.avatar %}
+                    <img src="{{ post.author.avatar.url }}" alt="">
+                {% else %}
+                    {{ post.author.username|first|upper }}
+                {% endif %}
+            </span>
+            <span>
+                <strong>{{ post.author.username }}</strong>
+                <time datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|timesince }} назад</time>
+            </span>
+        </a>
+        {% if user.is_authenticated and user.pk == post.author_id %}
+            <form method="post" action="{% url 'feed:post_delete' post.pk %}">
+                {% csrf_token %}
+                <button class="post-delete" type="submit" aria-label="Удалить публикацию">Удалить</button>
+            </form>
+        {% endif %}
+    </header>
+    <div class="post-content">
+        <p>{{ post.text|linebreaksbr }}</p>
+        {% if post.track_title %}
+            <div class="post-track">
+                <span class="post-track-icon" aria-hidden="true">♫</span>
+                <span class="post-track-info">
+                    <strong>{{ post.track_title }}</strong>
+                    <span>{{ post.track_artist }}</span>
+                </span>
+                <a class="post-track-link" href="{{ post.track_url }}" target="_blank" rel="noopener noreferrer">
+                    Открыть трек <span aria-hidden="true">↗</span>
+                </a>
+            </div>
+        {% endif %}
+        {% if post.image %}
+            <a class="post-image-link" href="{{ post.image.url }}">
+                <img class="post-image" src="{{ post.image.url }}" alt="Изображение к публикации">
+            </a>
+        {% endif %}
+    </div>
+    <footer class="post-footer">
+        <a href="{% url 'feed:post_detail' post.pk %}">Открыть публикацию <span aria-hidden="true">↗</span></a>
+        {% if user.is_authenticated and user.pk == post.author_id %}
+            <a href="{% url 'feed:post_edit' post.pk %}">Редактировать</a>
+        {% endif %}
+    </footer>
+</article>

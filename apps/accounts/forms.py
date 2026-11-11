@@ -1,7 +1,9 @@
+from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import UserCreationForm
 from django.forms import ModelForm
 
-from .models import User
+
+User = get_user_model()
 
 
 class RegistrationForm(UserCreationForm):

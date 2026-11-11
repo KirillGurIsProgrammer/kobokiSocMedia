@@ -4,37 +4,134 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#111216">
+    <meta name="theme-color" content="#0d0b10">
     <title>{% block title %}Koboki{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=3">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=6">
 </head>
 <body>
-    <header class="site-header">
-        <nav class="site-nav" aria-label="Основная навигация">
-            <a class="brand" href="/" aria-label="Koboki — главная">
-                <span class="brand-mark" aria-hidden="true">K</span>
-                <span class="brand-name">koboki<span class="brand-period">.</span></span>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <a class="brand" href="{% url 'feed:feed' %}" aria-label="Koboki — лента">
+                <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+                <span class="brand-name">koboki</span>
             </a>
-            <div class="nav-links">
-                <a class="nav-link" href="/">Главная</a>
+
+            <nav class="side-nav" aria-label="Основная навигация">
+                <a class="side-link {% if request.resolver_match.view_name == 'feed:feed' %}is-active{% endif %}" href="{% url 'feed:feed' %}">
+                    <span class="side-icon" aria-hidden="true">⌂</span><span>Лента</span>
+                </a>
                 {% if user.is_authenticated %}
-                    <a class="nav-link" href="{% url 'accounts:profile' user.username %}">Мой профиль</a>
-                    <form class="nav-form" method="post" action="{% url 'accounts:logout' %}">
-                        {% csrf_token %}
-                        <button class="nav-link nav-button" type="submit">Выйти</button>
-                    </form>
+                    <a class="side-link {% if request.resolver_match.view_name == 'accounts:user_directory' %}is-active{% endif %}" href="{% url 'accounts:user_directory' %}">
+                        <span class="side-icon" aria-hidden="true">♧</span><span>Добавить друзей</span>
+                    </a>
+                    <a class="side-link {% if request.resolver_match.view_name == 'feed:post_create' %}is-active{% endif %}" href="{% url 'feed:post_create' %}">
+                        <span class="side-icon" aria-hidden="true">＋</span><span>Создать пост</span>
+                    </a>
+                    <a class="side-link {% if request.resolver_match.view_name == 'accounts:profile' %}is-active{% endif %}" href="{% url 'accounts:profile' user.username %}">
+                        <span class="side-icon" aria-hidden="true">♙</span><span>Профиль</span>
+                    </a>
                 {% else %}
-                    <a class="nav-link" href="{% url 'accounts:login' %}">Войти</a>
-                    <a class="button button--small" href="{% url 'accounts:register' %}">Создать аккаунт</a>
+                    <a class="side-link {% if request.resolver_match.view_name == 'accounts:login' %}is-active{% endif %}" href="{% url 'accounts:login' %}">
+                        <span class="side-icon" aria-hidden="true">↪</span><span>Войти</span>
+                    </a>
+                    <a class="side-link {% if request.resolver_match.view_name == 'accounts:register' %}is-active{% endif %}" href="{% url 'accounts:register' %}">
+                        <span class="side-icon" aria-hidden="true">＋</span><span>Регистрация</span>
+                    </a>
                 {% endif %}
+            </nav>
+
+            {% if user.is_authenticated %}
+                <div class="sidebar-divider"></div>
+                <div class="sidebar-section-heading">
+                    <span>ТВОЙ АККАУНТ</span>
+                    <a href="{% url 'accounts:profile' user.username %}">↗</a>
+                </div>
+                <a class="sidebar-user" href="{% url 'accounts:profile' user.username %}">
+                    <span class="sidebar-avatar">
+                        {% if user.avatar %}<img src="{{ user.avatar.url }}" alt="">{% else %}{{ user.username|first|upper }}{% endif %}
+                    </span>
+                    <span class="sidebar-user-copy"><strong>{{ user.username }}</strong><small>Открыть профиль</small></span>
+                </a>
+                <a class="sidebar-create" href="{% url 'feed:post_create' %}"><span>＋</span> Новая публикация</a>
+                <form class="sidebar-logout" method="post" action="{% url 'accounts:logout' %}">
+                    {% csrf_token %}
+                    <button class="side-link" type="submit"><span class="side-icon" aria-hidden="true">↪</span><span>Выйти</span></button>
+                </form>
+            {% endif %}
+
+            <div class="sidebar-player">
+                <div class="player-cover" aria-hidden="true"><span>♫</span></div>
+                <div class="player-track"><strong>Музыка</strong><small>Посты и плейлисты</small></div>
+                <span class="player-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
             </div>
-        </nav>
-    </header>
-    <main class="site-main">
-        {% block content %}{% endblock %}
-    </main>
-    <footer class="site-footer">
-        <span class="footer-brand">Koboki · музыка и люди</span>
-    </footer>
+        </aside>
+
+        <div class="workspace">
+            <header class="topbar">
+                <div class="topbar-context">
+                    <span class="topbar-kicker">KOBOKI / SOCIAL</span>
+                    <span class="topbar-title">Музыка. Люди. Возможности.</span>
+                </div>
+                {% if user.is_authenticated %}
+                    <a class="topbar-profile" href="{% url 'accounts:profile' user.username %}" aria-label="Открыть профиль {{ user.username }}">
+                        {% if user.avatar %}<img src="{{ user.avatar.url }}" alt="">{% else %}{{ user.username|first|upper }}{% endif %}
+                        <span class="online-dot"></span>
+                    </a>
+                {% else %}
+                    <a class="topbar-signin" href="{% url 'accounts:login' %}">Войти</a>
+                {% endif %}
+            </header>
+
+            <div class="page-grid">
+                <main class="site-main">
+                    {% if messages %}
+                        <div class="message-list" role="status">
+                            {% for message in messages %}
+                                <p class="message message--{{ message.tags }}">{{ message }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    {% block content %}{% endblock %}
+                </main>
+
+                <aside class="right-rail">
+                    {% if user.is_authenticated %}
+                        <section class="rail-card rail-profile-card">
+                            <div class="rail-card-heading"><span class="online-dot"></span> ТВОЙ ПРОФИЛЬ</div>
+                            <a class="rail-user" href="{% url 'accounts:profile' user.username %}">
+                                <span class="rail-avatar">
+                                    {% if user.avatar %}<img src="{{ user.avatar.url }}" alt="">{% else %}{{ user.username|first|upper }}{% endif %}
+                                </span>
+                                <span><strong>{{ user.username }}</strong><small>Посмотреть страницу</small></span>
+                            </a>
+                            <div class="rail-stats">
+                                <a href="{% url 'accounts:profile' user.username %}"><strong>{{ user.followers.count }}</strong><span>подписчики</span></a>
+                                <a href="{% url 'accounts:profile' user.username %}"><strong>{{ user.following.count }}</strong><span>подписки</span></a>
+                            </div>
+                        </section>
+                        <section class="rail-card">
+                            <div class="rail-card-title"><h2>Быстрый доступ</h2><span aria-hidden="true">↗</span></div>
+                            <a class="rail-action" href="{% url 'feed:post_create' %}"><span class="rail-action-icon">＋</span><span><strong>Новая публикация</strong><small>Поделись тем, что слушаешь</small></span></a>
+                            <a class="rail-action" href="{% url 'accounts:profile_edit' user.username %}"><span class="rail-action-icon rail-action-icon--purple">♙</span><span><strong>Настроить профиль</strong><small>Обнови описание и аватар</small></span></a>
+                        </section>
+                    {% else %}
+                        <section class="rail-card rail-signup-card">
+                            <span class="rail-card-heading">KOBOKI / SOCIAL</span>
+                            <h2>Музыка<br>находит людей.</h2>
+                            <p>Публикуй посты, подписывайся на авторов и открывай новые музыкальные вкусы.</p>
+                            <a class="button button--full" href="{% url 'accounts:register' %}">Создать аккаунт <span>→</span></a>
+                        </section>
+                    {% endif %}
+
+                    <section class="rail-card rail-about">
+                        <div class="rail-card-title"><h2>О Koboki</h2><span class="rail-wave" aria-hidden="true">▂▅▃▇</span></div>
+                        <p>Музыкальная соцсеть для публикаций, плейлистов и общения вокруг музыки.</p>
+                        <div class="rail-tags"><span>#музыка</span><span>#плейлисты</span><span>#koboki</span></div>
+                    </section>
+                    <div class="rail-footer">Koboki · Музыка и сообщество</div>
+                </aside>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
