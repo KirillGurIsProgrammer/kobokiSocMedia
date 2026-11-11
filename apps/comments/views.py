@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import get_object_or_404, redirect
 
-from feed.models import Post
+from apps.feed.models import Post
 
 from .forms import CommentForm
 from .models import Comment

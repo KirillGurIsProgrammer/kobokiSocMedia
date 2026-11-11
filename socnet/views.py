@@ -1,6 +1,6 @@
 from django.shortcuts import render
 
-from feed.models import Post
+from apps.feed.models import Post
 
 
 def home(request):

@@ -10,10 +10,11 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
-    path("chat/", include("chat.urls")),
+    path("", include("apps.accounts.urls")),
+    path("chat/", include("apps.chat.urls")),
     path("", home, name="home"),
-    path("", include("feed.urls")),
-    path("", include("comments.urls")),
+    path("", include("apps.feed.urls")),
+    path("", include("apps.comments.urls")),
 ]
 
 if settings.DEBUG:

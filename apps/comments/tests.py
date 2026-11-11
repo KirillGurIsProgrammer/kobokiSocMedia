@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.test import TestCase
 
-from feed.models import Post
+from apps.feed.models import Post
 
 from .models import Comment
 from .services import add_comment, delete_comment

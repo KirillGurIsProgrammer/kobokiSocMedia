@@ -17,11 +17,11 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "accounts",
-    "feed",
-    "music",
-    "chat",
-    "comments",
+    "apps.accounts",
+    "apps.feed",
+    "apps.music",
+    "apps.chat",
+    "apps.comments",
 ]
 
 MIDDLEWARE = [

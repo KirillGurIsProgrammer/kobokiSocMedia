@@ -663,6 +663,18 @@ p { margin-top: 0; }
 .chat-form input[type="file"]:focus { border-color: var(--accent); outline: 0; }
 .chat-form input[type="file"] { max-width: 180px; }
 .form-errors { margin: 0 0 10px; color: #ff828c; font-size: 12px; }
+.profile-page { max-width: 860px; margin: 0 auto; }
+.profile-posts-heading { margin-top: 40px; }
+.profile-avatar { text-decoration: none; }
+.profile-bio { margin: 22px 0 0; color: var(--muted); font-size: 13px; }
+.comment-author,
+.post-meta,
+.conversation-name a,
+.message-author { transition: color .18s ease; }
+.comment-author:hover,
+.post-meta:hover,
+.conversation-name a:hover,
+.message-author:hover { color: var(--accent); }
 @media (max-width: 760px) {
     .msg { width: min(100% - 38px, 560px); }
     .post-grid { grid-template-columns: 1fr; }

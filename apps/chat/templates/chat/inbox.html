@@ -10,7 +10,11 @@
       <a class="conversation-card" href="{% url 'chat:dialog' conversation.id %}">
         <div>
           {% for participant in conversation.participants.all %}
-            {% if participant != user %}<span class="conversation-name">{{ participant.username }}</span>{% endif %}
+            {% if participant != user %}
+              <span class="conversation-name">
+                <a href="{% url 'accounts:profile' participant.username %}">{{ participant.username }}</a>
+              </span>
+            {% endif %}
           {% endfor %}
           {% with last=conversation.messages.last %}
             <p class="conversation-preview">{{ last.text|default:"Вложение"|truncatechars:80|default:"Сообщений пока нет" }}</p>

@@ -1,8 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
-from feed.models import Post
-from music.models import Track
+from apps.feed.models import Post
+from apps.music.models import Track
 
 
 class Command(BaseCommand):
