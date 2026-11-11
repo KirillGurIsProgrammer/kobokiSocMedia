@@ -1,0 +1,26 @@
+{% load static %}
+<section class="comments">
+  <h3>Комментарии</h3>
+  {% for comment in post.comments.all %}
+    <article class="comment">
+      <strong>{{ comment.author.username }}</strong>
+      <time datetime="{{ comment.created_at|date:'c' }}">{{ comment.created_at }}</time>
+      <p>{{ comment.text }}</p>
+      {% if user == comment.author or user == post.author %}
+        <form method="post" action="{% url 'comments:delete' comment.id %}">
+          {% csrf_token %}
+          <button type="submit">Удалить</button>
+        </form>
+      {% endif %}
+    </article>
+  {% empty %}
+    <p>Комментариев пока нет.</p>
+  {% endfor %}
+  {% if user.is_authenticated %}
+    <form method="post" action="{% url 'comments:add' post.id %}">
+      {% csrf_token %}
+      <textarea name="text" maxlength="1000" required rows="2"></textarea>
+      <button type="submit">Добавить комментарий</button>
+    </form>
+  {% endif %}
+</section>

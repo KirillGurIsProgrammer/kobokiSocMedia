@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Диалог</h1>
+<p><a href="{% url 'chat:inbox' %}">Назад к диалогам</a> · <button onclick="location.reload()">Обновить</button></p>
+<div class="messages">
+  {% for message in conversation.messages.all %}
+    {% include "chat/_message.html" with message=message %}
+  {% empty %}
+    <p>Сообщений пока нет.</p>
+  {% endfor %}
+</div>
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  {{ form.text.errors }}{{ form.text }}
+  {{ form.file.errors }}{{ form.file }}
+  <button type="submit">Отправить</button>
+</form>
+{% endblock %}

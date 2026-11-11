@@ -1,13 +1,17 @@
 [project]
 name = "kobokisocmedia"
 version = "0.1.0"
-description = "Add your description here"
+description = "Social network demo built with Django"
 readme = "README.md"
 authors = [
     { name = "yabl0ko", email = "yablochn1k@mail.ru" }
 ]
-requires-python = ">=3.14"
-dependencies = []
+requires-python = ">=3.11"
+dependencies = [
+    "Django>=5.1,<6.0",
+    "psycopg[binary]>=3.2,<4.0",
+    "python-dotenv>=1.0,<2.0",
+]
 
 [project.scripts]
 kobokisocmedia = "kobokisocmedia:main"
@@ -15,3 +19,7 @@ kobokisocmedia = "kobokisocmedia:main"
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]
 build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "socnet.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]

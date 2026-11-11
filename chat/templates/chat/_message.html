@@ -1,0 +1,8 @@
+<article class="message">
+  <strong>{{ message.sender.username }}</strong>
+  <time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at }}</time>
+  {% if message.text %}<p>{{ message.text }}</p>{% endif %}
+  {% for attachment in message.attachments.all %}
+    <a href="{{ attachment.file.url }}">{{ attachment.file.name }}</a>
+  {% endfor %}
+</article>
