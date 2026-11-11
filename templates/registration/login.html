@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Вход — Koboki{% endblock %}
+{% block content %}
+<section class="form-layout">
+  <div class="form-intro">
+    <span class="eyebrow">KOBOKI · СОЦИАЛЬНАЯ СЕТЬ</span>
+    <h1>Вход в<br><span class="text-accent">аккаунт.</span></h1>
+    <p>Войдите, чтобы читать сообщения, отвечать друзьям и оставаться на связи.</p>
+  </div>
+  <div class="form-card">
+    <h2>С возвращением</h2>
+    <p class="form-subtitle">Введите имя пользователя и пароль.</p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+      <button class="button form-submit" type="submit">Войти <span aria-hidden="true">↗</span></button>
+    </form>
+    <p class="form-switch">Демо: <strong>demo_alice</strong> / <strong>demo-password</strong></p>
+  </div>
+</section>
+{% endblock %}

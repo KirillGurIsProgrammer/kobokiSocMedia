@@ -1,17 +1,41 @@
 {% extends "base.html" %}
 {% block title %}Главная — Socnet{% endblock %}
 {% block content %}
-<h1>Добро пожаловать в Socnet</h1>
-<p><a href="{% url 'chat:inbox' %}">Открыть сообщения</a></p>
-
-<h2>Последние посты</h2>
-{% for post in posts %}
-  <article>
-    <h3>{{ post.author.username }}</h3>
-    <p>{{ post.text }}</p>
-    <a href="{% url 'feed:post_detail' post.id %}">Открыть пост и комментарии</a>
-  </article>
-{% empty %}
-  <p>Постов пока нет. Для создания демо-данных выполните <code>python manage.py seed_demo</code>.</p>
-{% endfor %}
+<section class="hero">
+  <div class="hero-copy">
+    <span class="eyebrow"><span class="eyebrow-dot"></span> СОЦСЕТЬ О МУЗЫКЕ</span>
+    <h1>Будь на связи<br><span class="text-accent">с людьми.</span></h1>
+    <p class="hero-description">Общайся, делись мыслями и находи новые знакомства в Koboki.</p>
+    <div class="hero-actions">
+      <a class="button" href="{% url 'chat:inbox' %}">Открыть сообщения <span aria-hidden="true">↗</span></a>
+      {% if user.is_authenticated %}
+        <span class="welcome-note">Вы вошли как {{ user.username }}</span>
+      {% else %}
+        <a class="text-link" href="{% url 'login' %}">Войти в аккаунт</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="hero-art" aria-hidden="true">
+    <div class="record-glow"></div>
+    <div class="vinyl-record"><div class="record-label"><span>K</span></div></div>
+    <div class="equalizer"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+  </div>
+</section>
+<section class="content-section">
+  <div class="section-heading">
+    <div><span class="eyebrow">ЛЕНТА</span><h2>Последние посты</h2></div>
+    <span class="section-count">{{ posts|length }} публикаций</span>
+  </div>
+  <div class="post-grid">
+    {% for post in posts %}
+      <article class="post-card">
+        <div class="post-meta"><span class="avatar">{{ post.author.username|first|upper }}</span><strong>{{ post.author.username }}</strong></div>
+        <p>{{ post.text }}</p>
+        <a class="text-link" href="{% url 'feed:post_detail' post.id %}">Открыть пост и комментарии ↗</a>
+      </article>
+    {% empty %}
+      <div class="empty-card"><p>Постов пока нет.</p><span>Выполните <code>python manage.py seed_demo</code>, чтобы добавить демо-данные.</span></div>
+    {% endfor %}
+  </div>
+</section>
 {% endblock %}

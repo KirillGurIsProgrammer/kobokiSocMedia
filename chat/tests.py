@@ -64,3 +64,12 @@ class ChatViewsTests(TestCase):
     def test_home_page_is_available(self):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
+
+    def test_anonymous_user_is_sent_to_site_login(self):
+        response = self.client.get(reverse("chat:inbox"))
+        self.assertRedirects(response, "/accounts/login/?next=/chat/")
+
+    def test_site_login_page_is_not_admin_login(self):
+        response = self.client.get("/accounts/login/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "С возвращением")
