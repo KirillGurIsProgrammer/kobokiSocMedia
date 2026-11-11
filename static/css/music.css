@@ -1,0 +1,5 @@
+.track-row { padding: 6px 0; border-bottom: 1px solid #ddd; }
+.player-nav a { margin-right: 16px; }
+.review { border-bottom: 1px solid #eee; padding: 8px 0; }
+.cover { max-width: 200px; display: block; margin: 8px 0; }
+audio { width: 100%; max-width: 480px; margin: 8px 0; }

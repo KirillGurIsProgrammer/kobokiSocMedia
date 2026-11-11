@@ -1,0 +1,32 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}SocNet{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <nav class="main-nav">
+    <a href="/">Лента</a>
+    <a href="/music/">Музыка</a>
+    <a href="/chat/">Сообщения</a>
+    {% if user.is_authenticated %}
+      <a href="/u/{{ user.username }}/">Профиль</a>
+      <form action="/accounts/logout/" method="post" style="display:inline">
+        {% csrf_token %}<button type="submit">Выйти</button>
+      </form>
+    {% else %}
+      <a href="/accounts/login/">Войти</a>
+    {% endif %}
+  </nav>
+
+  {% for m in messages %}
+    <p class="msg msg-{{ m.tags }}">{{ m }}</p>
+  {% endfor %}
+
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

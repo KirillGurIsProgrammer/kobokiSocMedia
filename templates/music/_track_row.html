@@ -1,0 +1,4 @@
+<div class="track-row">
+  <a href="{{ track.get_absolute_url }}">{{ track.artist }} — {{ track.title }}</a>
+  {% if track.album %}<small>({{ track.album.title }})</small>{% endif %}
+</div>
