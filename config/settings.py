@@ -1,4 +1,3 @@
-
 import os
 from pathlib import Path
 
@@ -9,23 +8,41 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
+# ---------------------------------------------------------------------------
+# Хелперы для чтения .env
+# ---------------------------------------------------------------------------
+
+def env(name, default=None, required=False):
+    value = os.getenv(name, default)
+    if required and not value:
+        raise ValueError(f"{name} is not configured in .env")
+    return value
+
+
+def env_bool(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+def env_list(name, default=""):
+    return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
+
+
+# ---------------------------------------------------------------------------
 # Security
+# ---------------------------------------------------------------------------
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-
-if not SECRET_KEY:
-    raise ValueError("SECRET_KEY is not configured")
-
-DEBUG = os.getenv("DEBUG", "False").lower() == "true"
-
-ALLOWED_HOSTS = [
-    host.strip()
-    for host in os.getenv("ALLOWED_HOSTS", "").split(",")
-    if host.strip()
-]
+SECRET_KEY = env("SECRET_KEY", required=True)
+DEBUG = env_bool("DEBUG", False)
+ALLOWED_HOSTS = env_list("ALLOWED_HOSTS")
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
 
 
+# ---------------------------------------------------------------------------
 # Applications
+# ---------------------------------------------------------------------------
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -44,7 +61,9 @@ INSTALLED_APPS = [
 ]
 
 
+# ---------------------------------------------------------------------------
 # Middleware
+# ---------------------------------------------------------------------------
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -57,13 +76,17 @@ MIDDLEWARE = [
 ]
 
 
+# ---------------------------------------------------------------------------
 # URLs
+# ---------------------------------------------------------------------------
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 
 
+# ---------------------------------------------------------------------------
 # Templates
+# ---------------------------------------------------------------------------
 
 TEMPLATES = [
     {
@@ -81,58 +104,74 @@ TEMPLATES = [
 ]
 
 
+# ---------------------------------------------------------------------------
 # Database
+# ---------------------------------------------------------------------------
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME", "koboki"),
-        "USER": os.getenv("DB_USER", "postgres"),
-        "PASSWORD": os.getenv("DB_PASSWORD", ""),
-        "HOST": os.getenv("DB_HOST", "localhost"),
-        "PORT": os.getenv("DB_PORT", "5432"),
+        "NAME": env("DB_NAME", "koboki"),
+        "USER": env("DB_USER", "postgres"),
+        "PASSWORD": env("DB_PASSWORD", ""),
+        "HOST": env("DB_HOST", "localhost"),
+        "PORT": env("DB_PORT", "5432"),
     }
 }
 
 
+# ---------------------------------------------------------------------------
 # Password validation
+# ---------------------------------------------------------------------------
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 
-# Internationalization
+# ---------------------------------------------------------------------------
+# Auth redirects
+# ---------------------------------------------------------------------------
 
-LANGUAGE_CODE = "ru-ru"
-TIME_ZONE = "Asia/Vladivostok"
+LOGIN_URL = env("LOGIN_URL", "/accounts/login/")
+LOGIN_REDIRECT_URL = env("LOGIN_REDIRECT_URL", "/")
+LOGOUT_REDIRECT_URL = env("LOGOUT_REDIRECT_URL", "/")
+
+
+# ---------------------------------------------------------------------------
+# Internationalization
+# ---------------------------------------------------------------------------
+
+LANGUAGE_CODE = env("LANGUAGE_CODE", "ru-ru")
+TIME_ZONE = env("TIME_ZONE", "Asia/Vladivostok")
 
 USE_I18N = True
 USE_TZ = True
 
 
-# Static files
+# ---------------------------------------------------------------------------
+# Static and media files
+# ---------------------------------------------------------------------------
 
-STATIC_URL = "static/"
+STATIC_URL = env("STATIC_URL", "static/")
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
+MEDIA_URL = env("MEDIA_URL", "/media/")
+MEDIA_ROOT = BASE_DIR / env("MEDIA_ROOT", "media")
 
+
+# ---------------------------------------------------------------------------
 # Email
+# ---------------------------------------------------------------------------
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = env("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 
 
+# ---------------------------------------------------------------------------
 # Default primary key
+# ---------------------------------------------------------------------------
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
