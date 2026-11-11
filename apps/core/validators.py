@@ -1,7 +1,7 @@
-"""Общие валидаторы файлов. Используются music, accounts, messaging.
+"""Shared file validators used by music, accounts, and messaging.
 
-Валидаторы — обычные функции верхнего уровня (не фабрики с замыканием),
-иначе Django не сможет сериализовать их в миграции.
+Validators are top-level functions rather than closures so Django can serialize
+them in migrations.
 """
 import os
 
@@ -14,9 +14,9 @@ AUDIO_EXT = {".mp3", ".ogg", ".wav"}
 def _check(file, allowed, max_mb):
     ext = os.path.splitext(file.name)[1].lower()
     if ext not in allowed:
-        raise ValidationError(f"Допустимые форматы: {', '.join(sorted(allowed))}")
+        raise ValidationError(f"Allowed formats: {', '.join(sorted(allowed))}")
     if file.size > max_mb * 1024 * 1024:
-        raise ValidationError(f"Файл больше {max_mb} МБ")
+        raise ValidationError(f"File exceeds {max_mb} MB.")
 
 
 def validate_image(file):

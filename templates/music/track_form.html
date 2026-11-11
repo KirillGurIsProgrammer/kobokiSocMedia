@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Загрузить трек{% endblock %}
+{% block title %}{% if track %}Edit track{% else %}Upload track{% endif %}{% endblock %}
 
 {% block content %}
-<h1>Загрузить трек</h1>
+<h1>{% if track %}Edit track{% else %}Upload track{% endif %}</h1>
 <form method="post" enctype="multipart/form-data">
   {% csrf_token %}
   {{ form.as_p }}
-  <button type="submit">Загрузить</button>
-  <a href="{% url 'music:library' %}">Отмена</a>
+  <button type="submit">{% if track %}Save changes{% else %}Upload{% endif %}</button>
+  <a href="{% url 'music:library' %}">Cancel</a>
 </form>
 {% endblock %}

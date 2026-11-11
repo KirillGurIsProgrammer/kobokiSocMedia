@@ -9,7 +9,7 @@ load_dotenv(BASE_DIR / ".env")
 
 
 # ---------------------------------------------------------------------------
-# Хелперы для чтения .env
+# Helpers for reading .env values.
 # ---------------------------------------------------------------------------
 
 def env(name, default=None, required=False):
@@ -145,7 +145,7 @@ LOGOUT_REDIRECT_URL = env("LOGOUT_REDIRECT_URL", "/")
 # Internationalization
 # ---------------------------------------------------------------------------
 
-LANGUAGE_CODE = env("LANGUAGE_CODE", "ru-ru")
+LANGUAGE_CODE = env("LANGUAGE_CODE", "en-us")
 TIME_ZONE = env("TIME_ZONE", "Asia/Vladivostok")
 
 USE_I18N = True

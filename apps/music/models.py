@@ -11,9 +11,9 @@ User = settings.AUTH_USER_MODEL
 
 class Album(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="albums")
-    title = models.CharField("Название", max_length=100)
+    title = models.CharField("Title", max_length=100)
     cover = models.ImageField(
-        "Обложка", upload_to="covers/", blank=True, validators=[validate_image]
+        "Cover", upload_to="covers/", blank=True, validators=[validate_image]
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -32,10 +32,10 @@ class Track(models.Model):
     album = models.ForeignKey(
         Album, null=True, blank=True, on_delete=models.SET_NULL, related_name="tracks"
     )
-    title = models.CharField("Название", max_length=100)
-    artist = models.CharField("Исполнитель", max_length=100)
+    title = models.CharField("Title", max_length=100)
+    artist = models.CharField("Artist", max_length=100)
     audio_file = models.FileField(
-        "Аудиофайл", upload_to="tracks/", validators=[validate_audio]
+        "Audio file", upload_to="tracks/", validators=[validate_audio]
     )
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
@@ -50,7 +50,7 @@ class Track(models.Model):
 
 
 class Review(models.Model):
-    """Отзыв на трек ИЛИ на альбом (ровно одно из двух)."""
+    """A review for exactly one track or album."""
 
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
     track = models.ForeignKey(
@@ -60,15 +60,15 @@ class Review(models.Model):
         Album, null=True, blank=True, on_delete=models.CASCADE, related_name="reviews"
     )
     rating = models.PositiveSmallIntegerField(
-        "Оценка", validators=[MinValueValidator(1), MaxValueValidator(5)]
+        "Rating", validators=[MinValueValidator(1), MaxValueValidator(5)]
     )
-    text = models.TextField("Отзыв", max_length=1000, blank=True)
+    text = models.TextField("Review", max_length=1000, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
         constraints = [
-            # Django 5.1+: параметр называется condition (раньше был check)
+            # Django 5.1+: the argument is named condition (previously check).
             models.CheckConstraint(
                 condition=(
                     Q(track__isnull=False, album__isnull=True)

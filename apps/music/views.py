@@ -39,14 +39,42 @@ def track_upload(request):
     if request.method == "POST":
         form = TrackForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
-            track = form.save(commit=False)
-            track.owner = request.user
-            track.save()
-            messages.success(request, "Трек загружен")
+            data = form.cleaned_data
+            track = services.create_track(
+                request.user,
+                title=data["title"],
+                artist=data["artist"],
+                album=data["album"],
+                audio_file=data["audio_file"],
+            )
+            messages.success(request, "Track uploaded.")
             return redirect(track)
     else:
         form = TrackForm(user=request.user)
     return render(request, "music/track_form.html", {"form": form})
+
+
+@login_required
+def track_edit(request, pk):
+    track = get_object_or_404(Track, pk=pk)
+    services.ensure_owner(request.user, track)
+    if request.method == "POST":
+        form = TrackForm(request.POST, request.FILES, instance=track, user=request.user)
+        if form.is_valid():
+            data = form.cleaned_data
+            services.update_track(
+                request.user,
+                track,
+                title=data["title"],
+                artist=data["artist"],
+                album=data["album"],
+                audio_file=data.get("audio_file"),
+            )
+            messages.success(request, "Track updated.")
+            return redirect(track)
+    else:
+        form = TrackForm(instance=track, user=request.user)
+    return render(request, "music/track_form.html", {"form": form, "track": track})
 
 
 @login_required
@@ -69,7 +97,7 @@ def track_detail(request, pk):
 def track_delete(request, pk):
     track = get_object_or_404(Track, pk=pk)
     services.delete_track(request.user, track)
-    messages.success(request, "Трек удалён")
+    messages.success(request, "Track deleted.")
     return redirect("music:library")
 
 
@@ -78,14 +106,42 @@ def album_create(request):
     if request.method == "POST":
         form = AlbumForm(request.POST, request.FILES)
         if form.is_valid():
-            album = form.save(commit=False)
-            album.owner = request.user
-            album.save()
-            messages.success(request, "Альбом создан")
+            data = form.cleaned_data
+            album = services.create_album(
+                request.user, title=data["title"], cover=data.get("cover")
+            )
+            messages.success(request, "Album created.")
             return redirect(album)
     else:
         form = AlbumForm()
     return render(request, "music/album_form.html", {"form": form})
+
+
+@login_required
+def album_edit(request, pk):
+    album = get_object_or_404(Album, pk=pk)
+    services.ensure_owner(request.user, album)
+    if request.method == "POST":
+        form = AlbumForm(request.POST, request.FILES, instance=album)
+        if form.is_valid():
+            data = form.cleaned_data
+            services.update_album(
+                request.user, album, title=data["title"], cover=data.get("cover")
+            )
+            messages.success(request, "Album updated.")
+            return redirect(album)
+    else:
+        form = AlbumForm(instance=album)
+    return render(request, "music/album_form.html", {"form": form, "album": album})
+
+
+@login_required
+@require_POST
+def album_delete(request, pk):
+    album = get_object_or_404(Album, pk=pk)
+    services.delete_album(request.user, album)
+    messages.success(request, "Album deleted.")
+    return redirect("music:library")
 
 
 @login_required
@@ -112,11 +168,11 @@ def _handle_review(request, *, track=None, album=None):
                 track=track,
                 album=album,
             )
-            messages.success(request, "Отзыв добавлен")
+            messages.success(request, "Review submitted.")
         except ValidationError as e:
             messages.error(request, "; ".join(e.messages))
     else:
-        messages.error(request, "Проверьте оценку и текст отзыва")
+        messages.error(request, "Check the rating and review text.")
     return redirect(track or album)
 
 

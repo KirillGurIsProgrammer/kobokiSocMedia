@@ -5,22 +5,30 @@
 
 {% block content %}
 <h1>{{ album.title }}</h1>
-{% if album.cover %}<img src="{{ album.cover.url }}" alt="Обложка" class="cover">{% endif %}
-<p>Автор: <a href="/u/{{ album.owner.username }}/">{{ album.owner.username }}</a></p>
+{% if album.cover %}<img src="{{ album.cover.url }}" alt="Album cover" class="cover">{% endif %}
+<p>By <a href="/u/{{ album.owner.username }}/">{{ album.owner.username }}</a></p>
 
 {% if is_owner %}
-  <p><a href="{% url 'music:track_upload' %}">+ Добавить трек</a></p>
+  <p>
+    <a href="{% url 'music:album_edit' album.pk %}">Edit album</a> ·
+    <a href="{% url 'music:track_upload' %}">+ Add track</a>
+  </p>
+  <form method="post" action="{% url 'music:album_delete' album.pk %}"
+        onsubmit="return confirm('Delete this album? Its tracks will remain in your library.')">
+    {% csrf_token %}
+    <button type="submit">Delete album</button>
+  </form>
 {% endif %}
 
-<h2>Треки</h2>
+<h2>Tracks</h2>
 {% for track in tracks %}
   {% include "music/_track_row.html" %}
 {% empty %}
-  <p>В альбоме пока нет треков.</p>
+  <p>This album has no tracks yet.</p>
 {% endfor %}
 
-<h2>Отзывы</h2>
-<p>{% if rating %}Средняя оценка: ★ {{ rating }} / 5{% else %}Оценок пока нет{% endif %}</p>
+<h2>Reviews</h2>
+<p>{% if rating %}Average rating: ★ {{ rating }} / 5{% else %}No ratings yet.{% endif %}</p>
 
 {% for review in reviews %}
   <div class="review">
@@ -29,13 +37,13 @@
     <p>{{ review.text }}</p>
   </div>
 {% empty %}
-  <p>Отзывов пока нет.</p>
+  <p>No reviews yet.</p>
 {% endfor %}
 
-<h3>Оставить отзыв</h3>
+<h3>Leave a review</h3>
 <form method="post" action="{% url 'music:album_review' album.pk %}">
   {% csrf_token %}
   {{ review_form.as_p }}
-  <button type="submit">Отправить</button>
+  <button type="submit">Submit</button>
 </form>
 {% endblock %}
