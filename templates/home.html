@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Главная — Socnet{% endblock %}
+{% block content %}
+<h1>Добро пожаловать в Socnet</h1>
+<p><a href="{% url 'chat:inbox' %}">Открыть сообщения</a></p>
+
+<h2>Последние посты</h2>
+{% for post in posts %}
+  <article>
+    <h3>{{ post.author.username }}</h3>
+    <p>{{ post.text }}</p>
+    <a href="{% url 'feed:post_detail' post.id %}">Открыть пост и комментарии</a>
+  </article>
+{% empty %}
+  <p>Постов пока нет. Для создания демо-данных выполните <code>python manage.py seed_demo</code>.</p>
+{% endfor %}
+{% endblock %}

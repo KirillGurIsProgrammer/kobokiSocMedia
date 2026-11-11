@@ -60,3 +60,7 @@ class ChatViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.client.force_login(other)
         self.assertEqual(self.client.get(reverse("chat:dialog", args=[self.dialog.pk])).status_code, 404)
+
+    def test_home_page_is_available(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
