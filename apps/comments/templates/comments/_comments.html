@@ -3,9 +3,7 @@
   <h3>Комментарии</h3>
   {% for comment in post.comments.all %}
     <article class="comment">
-      <a class="comment-author" href="{% url 'accounts:profile' comment.author.username %}">
-        <strong>{{ comment.author.username }}</strong>
-      </a>
+      <strong>{{ comment.author.username }}</strong>
       <time datetime="{{ comment.created_at|date:'c' }}">{{ comment.created_at }}</time>
       <p>{{ comment.text }}</p>
       {% if user == comment.author or user == post.author %}

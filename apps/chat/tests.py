@@ -73,8 +73,3 @@ class ChatViewsTests(TestCase):
         response = self.client.get("/accounts/login/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "С возвращением")
-
-    def test_profile_is_available_from_username(self):
-        response = self.client.get("/u/alice/")
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "alice")

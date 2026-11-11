@@ -29,9 +29,7 @@
   <div class="post-grid">
     {% for post in posts %}
       <article class="post-card">
-        <a class="post-meta" href="{% url 'accounts:profile' post.author.username %}">
-          <span class="avatar">{{ post.author.username|first|upper }}</span><strong>{{ post.author.username }}</strong>
-        </a>
+        <div class="post-meta"><span class="avatar">{{ post.author.username|first|upper }}</span><strong>{{ post.author.username }}</strong></div>
         <p>{{ post.text }}</p>
         <a class="text-link" href="{% url 'feed:post_detail' post.id %}">Открыть пост и комментарии ↗</a>
       </article>
