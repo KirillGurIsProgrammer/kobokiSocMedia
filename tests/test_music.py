@@ -61,6 +61,17 @@ class MusicTests(TestCase):
         resp = self.client.get(reverse("music:library"))
         self.assertEqual(resp.status_code, 302)
 
+    def test_library_renders_persistent_player_and_playable_track(self):
+        self.client.login(username="alice", password="pass12345")
+        response = self.client.get(reverse("music:library"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-music-player')
+        self.assertContains(response, f'data-track-id="{self.track.pk}"')
+        self.assertContains(response, "Рекомендации")
+        self.assertContains(response, "Мои треки и альбомы")
+        self.assertEqual(response.content.count(b"<audio "), 1)
+
     def test_foreign_track_cannot_be_deleted(self):
         self.client.login(username="bob", password="pass12345")
         resp = self.client.post(reverse("music:track_delete", args=[self.track.pk]))

@@ -1,34 +1,70 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Music{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/music.css' %}">{% endblock %}
+{% block title %}Музыка{% endblock %}
 
 {% block content %}
-<h1>{% if is_mine %}My music{% else %}{{ owner.username }}'s music{% endif %}</h1>
+<div class="music-library">
+    <header class="music-heading">
+        <div><span class="eyebrow"><span class="eyebrow-dot"></span> КОЛЛЕКЦИЯ KOBOKI</span>
+            <h1>{% if is_mine %}Музыка{% else %}Музыка · {{ owner.username }}{% endif %}</h1>
+            <p>Треки, альбомы и новые находки сообщества.</p>
+        </div>
+        {% if is_mine %}<div class="music-actions">
+            <a class="button button--outline button--small" href="{% url 'music:album_create' %}">Создать альбом</a>
+            <a class="button button--small" href="{% url 'music:track_upload' %}">Загрузить трек <span>＋</span></a>
+        </div>{% endif %}
+    </header>
 
-{% if is_mine %}
-  <p>
-    <a href="{% url 'music:track_upload' %}">+ Upload track</a> ·
-    <a href="{% url 'music:album_create' %}">+ Create album</a>
-  </p>
-{% endif %}
+    <nav class="music-tabs" aria-label="Разделы музыки">
+        <a href="#recommendations">Рекомендации</a>
+        <a href="#liked">Понравившиеся</a>
+        <a href="#my-playlists">Мои плейлисты</a>
+        <a href="#saved-playlists">Сохранённые</a>
+        <a href="#my-music">Мои треки и альбомы</a>
+    </nav>
 
-<form method="get" class="search">
-  <input name="q" value="{{ q }}" placeholder="Search by title or artist">
-  <button type="submit">Search</button>
-</form>
+    <form method="get" class="music-search" role="search">
+        <label for="music-search-input" aria-hidden="true">⌕</label>
+        <input id="music-search-input" name="q" value="{{ q }}" placeholder="Поиск по названию или исполнителю">
+        <button class="button button--small" type="submit">Найти</button>
+        {% if q %}<a class="music-search-clear" href="{% url 'music:library' %}">Сбросить</a>{% endif %}
+    </form>
 
-<h2>Albums</h2>
-{% for album in albums %}
-  <p><a href="{{ album.get_absolute_url }}">{{ album.title }}</a></p>
-{% empty %}
-  <p>No albums yet.</p>
-{% endfor %}
+    {% if is_mine %}
+    <section class="music-section" id="recommendations">
+        <div class="music-section-heading"><div><span class="eyebrow">ДЛЯ ТЕБЯ</span><h2>Рекомендации</h2></div></div>
+        <div class="music-track-list" data-track-list>
+            {% for track in discover_tracks %}{% include "music/_track_row.html" %}
+            {% empty %}<div class="music-empty"><span>♫</span><strong>Пока нет новых треков</strong><p>Загруженные другими участниками треки появятся здесь.</p></div>{% endfor %}
+        </div>
+    </section>
 
-<h2>Tracks</h2>
-{% for track in tracks %}
-  {% include "music/_track_row.html" %}
-{% empty %}
-  <p>No tracks yet.</p>
-{% endfor %}
+    <section class="music-section music-section-compact" id="liked">
+        <div class="music-section-heading"><div><span class="eyebrow">ТВОЯ КОЛЛЕКЦИЯ</span><h2>Понравившиеся</h2></div></div>
+        <p class="music-coming-soon">Сохраняй любимые треки сердцем в следующем обновлении.</p>
+    </section>
+    <section class="music-section music-section-compact" id="my-playlists">
+        <div class="music-section-heading"><div><span class="eyebrow">СОБРАННОЕ ТОБОЙ</span><h2>Мои плейлисты</h2></div></div>
+        <p class="music-coming-soon">Создание плейлистов появится в следующем обновлении.</p>
+    </section>
+    <section class="music-section music-section-compact" id="saved-playlists">
+        <div class="music-section-heading"><div><span class="eyebrow">ИЗ СООБЩЕСТВА</span><h2>Сохранённые плейлисты</h2></div></div>
+        <p class="music-coming-soon">Здесь будут плейлисты, сохранённые из сообщества.</p>
+    </section>
+    {% endif %}
+
+    <section class="music-section" id="my-music">
+        <div class="music-section-heading"><div><span class="eyebrow">БИБЛИОТЕКА</span><h2>{% if is_mine %}Мои треки и альбомы{% else %}Треки и альбомы {{ owner.username }}{% endif %}</h2></div></div>
+        {% if albums %}<div class="music-album-grid">
+            {% for album in albums %}<a class="music-album-card" href="{{ album.get_absolute_url }}">
+                {% if album.cover %}<img src="{{ album.cover.url }}" alt="Обложка альбома {{ album.title }}">{% else %}<span class="music-album-placeholder">♫</span>{% endif %}
+                <strong>{{ album.title }}</strong><small>{{ album.tracks.count }} трек(ов)</small>
+            </a>{% endfor %}
+        </div>{% endif %}
+        <div class="music-track-list" data-track-list>
+            {% for track in tracks %}{% include "music/_track_row.html" %}
+            {% empty %}<div class="music-empty"><span>♫</span><strong>В библиотеке пока пусто</strong><p>Загрузи первый трек или найди музыку сообщества.</p></div>{% endfor %}
+        </div>
+    </section>
+</div>
 {% endblock %}

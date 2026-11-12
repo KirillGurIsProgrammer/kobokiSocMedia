@@ -12,6 +12,14 @@ def search_tracks(owner, query=""):
     return qs
 
 
+def get_discover_tracks(user, query=""):
+    """Return other users' tracks for the public discovery section."""
+    qs = Track.objects.exclude(owner=user).select_related("owner", "album")
+    if query:
+        qs = qs.filter(Q(title__icontains=query) | Q(artist__icontains=query))
+    return qs.order_by("-uploaded_at", "-pk")
+
+
 def get_neighbors(track):
     """Return the previous and next track in the album or ungrouped library."""
     if track.album_id:

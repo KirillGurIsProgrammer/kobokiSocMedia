@@ -1,3 +1,36 @@
-<audio controls preload="none" src="{{ track.audio_file.url }}">
-  Your browser does not support audio playback.
-</audio>
+<section class="music-player" data-music-player aria-label="Музыкальный плеер">
+    <audio id="music-audio" preload="metadata"></audio>
+    <div class="music-player-track">
+        <div class="music-player-cover" data-player-cover aria-hidden="true"><span>♫</span></div>
+        <div class="music-player-copy">
+            <strong data-player-title>Выберите трек</strong>
+            <span data-player-artist>Музыка Koboki</span>
+        </div>
+        <button class="music-player-icon" type="button" data-player-like aria-label="Нравится" title="Нравится" disabled>♡</button>
+    </div>
+
+    <div class="music-player-controls">
+        <div class="music-player-buttons">
+            <button type="button" data-player-previous aria-label="Предыдущий трек" title="Предыдущий трек">|‹</button>
+            <button class="music-player-play" type="button" data-player-toggle aria-label="Воспроизвести" title="Воспроизвести">▶</button>
+            <button type="button" data-player-next aria-label="Следующий трек" title="Следующий трек">›|</button>
+        </div>
+        <div class="music-player-timeline">
+            <span data-player-current>0:00</span>
+            <input type="range" min="0" max="1000" value="0" data-player-seek aria-label="Позиция воспроизведения" disabled>
+            <span data-player-duration>0:00</span>
+        </div>
+    </div>
+
+    <div class="music-player-extras">
+        <label class="music-volume" aria-label="Громкость">
+            <span aria-hidden="true">◖</span>
+            <input type="range" min="0" max="1" step="0.01" value="0.8" data-player-volume>
+        </label>
+        <button class="music-player-icon" type="button" data-queue-toggle aria-expanded="false" aria-controls="music-queue">Очередь</button>
+    </div>
+    <div class="music-queue" id="music-queue" data-player-queue hidden>
+        <h2>Очередь воспроизведения</h2>
+        <ol data-queue-items></ol>
+    </div>
+</section>

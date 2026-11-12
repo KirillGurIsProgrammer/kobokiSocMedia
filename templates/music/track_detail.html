@@ -1,33 +1,32 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}{{ track.title }}{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/music.css' %}">{% endblock %}
 
 {% block content %}
 <h1>{{ track.artist }} — {{ track.title }}</h1>
 <p>
-  Uploaded by <a href="/u/{{ track.owner.username }}/">{{ track.owner.username }}</a>
-  {% if track.album %}· Album: <a href="{{ track.album.get_absolute_url }}">{{ track.album.title }}</a>{% endif %}
+  Исполнитель: <a href="{% url 'accounts:profile' track.owner.username %}">{{ track.owner.username }}</a>
+  {% if track.album %}· Альбом: <a href="{{ track.album.get_absolute_url }}">{{ track.album.title }}</a>{% endif %}
 </p>
 
-{% include "music/_player.html" %}
+<div data-track-list>{% include "music/_track_row.html" %}</div>
 
 <p class="player-nav">
-  {% if prev_track %}<a href="{{ prev_track.get_absolute_url }}">← Previous</a>{% endif %}
-  {% if next_track %}<a href="{{ next_track.get_absolute_url }}">Next →</a>{% endif %}
+  {% if prev_track %}<a href="{{ prev_track.get_absolute_url }}">← Предыдущий</a>{% endif %}
+  {% if next_track %}<a href="{{ next_track.get_absolute_url }}">Следующий →</a>{% endif %}
 </p>
 
 {% if is_owner %}
-  <p><a href="{% url 'music:track_edit' track.pk %}">Edit track</a></p>
+  <p><a href="{% url 'music:track_edit' track.pk %}">Изменить трек</a></p>
   <form method="post" action="{% url 'music:track_delete' track.pk %}"
-        onsubmit="return confirm('Delete this track?')">
+        onsubmit="return confirm('Удалить этот трек?')">
     {% csrf_token %}
-    <button type="submit">Delete track</button>
+    <button type="submit">Удалить трек</button>
   </form>
 {% endif %}
 
-<h2>Reviews</h2>
-<p>{% if rating %}Average rating: ★ {{ rating }} / 5{% else %}No ratings yet.{% endif %}</p>
+<h2>Отзывы</h2>
+<p>{% if rating %}Средняя оценка: ★ {{ rating }} / 5{% else %}Оценок пока нет.{% endif %}</p>
 
 {% for review in reviews %}
   <div class="review">
@@ -39,10 +38,10 @@
   <p>No reviews yet.</p>
 {% endfor %}
 
-<h3>Leave a review</h3>
+<h3>Оставить отзыв</h3>
 <form method="post" action="{% url 'music:track_review' track.pk %}">
   {% csrf_token %}
   {{ review_form.as_p }}
-  <button type="submit">Submit</button>
+  <button type="submit">Отправить</button>
 </form>
 {% endblock %}

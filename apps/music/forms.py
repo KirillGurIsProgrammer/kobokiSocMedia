@@ -7,6 +7,12 @@ class TrackForm(forms.ModelForm):
     class Meta:
         model = Track
         fields = ["title", "artist", "album", "audio_file"]
+        labels = {
+            "title": "Название трека",
+            "artist": "Исполнитель",
+            "album": "Альбом",
+            "audio_file": "Аудиофайл",
+        }
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -20,16 +26,17 @@ class AlbumForm(forms.ModelForm):
     class Meta:
         model = Album
         fields = ["title", "cover"]
+        labels = {"title": "Название альбома", "cover": "Обложка"}
 
 
 class ReviewForm(forms.Form):
     rating = forms.TypedChoiceField(
-        label="Rating",
+        label="Оценка",
         choices=[(i, "★" * i) for i in range(5, 0, -1)],
         coerce=int,
     )
     text = forms.CharField(
-        label="Review",
+        label="Отзыв",
         max_length=1000,
         required=False,
         widget=forms.Textarea(attrs={"rows": 3}),

@@ -7,6 +7,8 @@
     <meta name="theme-color" content="#0d0b10">
     <title>{% block title %}Koboki{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/main.css' %}?v=6">
+    <link rel="stylesheet" href="{% static 'css/music.css' %}?v=1">
+    <script src="{% static 'js/player.js' %}?v=1" defer></script>
 </head>
 <body>
     <div class="app-shell">
@@ -136,5 +138,6 @@
             </div>
         </div>
     </div>
+    {% include "music/_player.html" %}
 </body>
 </html>

@@ -1,4 +1,16 @@
-<div class="track-row">
-  <a href="{{ track.get_absolute_url }}">{{ track.artist }} — {{ track.title }}</a>
-  {% if track.album %}<small>({{ track.album.title }})</small>{% endif %}
-</div>
+<article class="music-track-row" data-track-id="{{ track.pk }}">
+    <button class="music-track-play" type="button"
+        data-track-play
+        data-track-id="{{ track.pk }}"
+        data-track-url="{{ track.audio_file.url }}"
+        data-track-title="{{ track.title }}"
+        data-track-artist="{{ track.artist }}"
+        data-track-cover="{% if track.album and track.album.cover %}{{ track.album.cover.url }}{% endif %}"
+        data-playlist-id=""
+        aria-label="Воспроизвести: {{ track.title }} — {{ track.artist }}">▶</button>
+    <div class="music-track-copy">
+        <a href="{{ track.get_absolute_url }}"><strong>{{ track.title }}</strong></a>
+        <span>{{ track.artist }}{% if track.album %} · <a href="{{ track.album.get_absolute_url }}">{{ track.album.title }}</a>{% endif %}</span>
+    </div>
+    <span class="music-track-owner">{{ track.owner.username }}</span>
+</article>

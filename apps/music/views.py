@@ -18,6 +18,7 @@ def _render_library(request, owner):
         "owner": owner,
         "is_mine": owner == request.user,
         "tracks": services.search_tracks(owner, q),
+        "discover_tracks": services.get_discover_tracks(request.user, q),
         "albums": owner.albums.all(),
         "q": q,
     })
@@ -47,7 +48,7 @@ def track_upload(request):
                 album=data["album"],
                 audio_file=data["audio_file"],
             )
-            messages.success(request, "Track uploaded.")
+            messages.success(request, "Трек загружен.")
             return redirect(track)
     else:
         form = TrackForm(user=request.user)
@@ -70,7 +71,7 @@ def track_edit(request, pk):
                 album=data["album"],
                 audio_file=data.get("audio_file"),
             )
-            messages.success(request, "Track updated.")
+            messages.success(request, "Изменения трека сохранены.")
             return redirect(track)
     else:
         form = TrackForm(instance=track, user=request.user)
@@ -97,7 +98,7 @@ def track_detail(request, pk):
 def track_delete(request, pk):
     track = get_object_or_404(Track, pk=pk)
     services.delete_track(request.user, track)
-    messages.success(request, "Track deleted.")
+    messages.success(request, "Трек удалён.")
     return redirect("music:library")
 
 
@@ -110,7 +111,7 @@ def album_create(request):
             album = services.create_album(
                 request.user, title=data["title"], cover=data.get("cover")
             )
-            messages.success(request, "Album created.")
+            messages.success(request, "Альбом создан.")
             return redirect(album)
     else:
         form = AlbumForm()
@@ -128,7 +129,7 @@ def album_edit(request, pk):
             services.update_album(
                 request.user, album, title=data["title"], cover=data.get("cover")
             )
-            messages.success(request, "Album updated.")
+            messages.success(request, "Изменения альбома сохранены.")
             return redirect(album)
     else:
         form = AlbumForm(instance=album)
@@ -140,7 +141,7 @@ def album_edit(request, pk):
 def album_delete(request, pk):
     album = get_object_or_404(Album, pk=pk)
     services.delete_album(request.user, album)
-    messages.success(request, "Album deleted.")
+    messages.success(request, "Альбом удалён.")
     return redirect("music:library")
 
 
@@ -168,11 +169,11 @@ def _handle_review(request, *, track=None, album=None):
                 track=track,
                 album=album,
             )
-            messages.success(request, "Review submitted.")
+            messages.success(request, "Отзыв отправлен.")
         except ValidationError as e:
             messages.error(request, "; ".join(e.messages))
     else:
-        messages.error(request, "Check the rating and review text.")
+        messages.error(request, "Проверьте оценку и текст отзыва.")
     return redirect(track or album)
 
 
