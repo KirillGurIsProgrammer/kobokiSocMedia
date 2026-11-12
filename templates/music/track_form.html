@@ -2,6 +2,7 @@
 {% block title %}{% if track %}Изменить трек{% else %}Загрузить трек{% endif %}{% endblock %}
 
 {% block content %}
+<div class="music-form-page">
 <h1>{% if track %}Изменить трек{% else %}Загрузить трек{% endif %}</h1>
 <form method="post" enctype="multipart/form-data">
   {% csrf_token %}
@@ -9,4 +10,5 @@
   <button type="submit">{% if track %}Сохранить{% else %}Загрузить{% endif %}</button>
   <a href="{% url 'music:library' %}">Отмена</a>
 </form>
+ </div>
 {% endblock %}

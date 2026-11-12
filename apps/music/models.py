@@ -198,6 +198,20 @@ class MusicSettings(models.Model):
     )
 
 
+class ListenAlong(models.Model):
+    listener = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="music_listen_along",
+    )
+    host = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="music_listeners",
+    )
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+
 class Review(models.Model):
     """A review for exactly one track or album."""
 

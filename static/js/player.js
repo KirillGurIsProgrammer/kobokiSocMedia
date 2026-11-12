@@ -17,11 +17,14 @@
     const playerLikeUrl = playerLikeForm.action;
     const playerLikeButton = player.querySelector("[data-player-like]");
     const nowPlayingUrl = player.dataset.nowPlayingUrl;
+    const listenBanner = player.querySelector("[data-listen-along-banner]");
     const storageKey = "koboki.music-player.v1";
     let queue = [];
     let queueIndex = -1;
     let activeTrack = null;
     let restoring = false;
+    let joinedHost = null;
+    let syncInFlight = false;
 
     const formatTime = (seconds) => {
         if (!Number.isFinite(seconds)) return "0:00";
@@ -70,6 +73,12 @@
                 "X-Requested-With": "XMLHttpRequest",
             },
             body: JSON.stringify(payload),
+        }).then((response) => response.ok ? response.json() : null).then((result) => {
+            if (!result || !Number.isFinite(result.listener_count)) return;
+            player.querySelectorAll("[data-host-listener-count]").forEach((counter) => {
+                counter.textContent = `С вами слушают: ${result.listener_count}`;
+                counter.hidden = false;
+            });
         }).catch(() => {});
     }
 
@@ -81,6 +90,7 @@
             button.type = "button";
             button.textContent = `${track.title} — ${track.artist}`;
             button.setAttribute("aria-current", index === queueIndex ? "true" : "false");
+            button.disabled = Boolean(joinedHost);
             button.addEventListener("click", () => playIndex(index));
             item.append(button);
             queueList.append(item);
@@ -117,6 +127,7 @@
         audio.load();
         paintTrack(track);
         renderQueue();
+        updateListenAlongControls();
         if (shouldPlay) audio.play().catch(() => {});
         saveState();
         sendNowPlaying(!audio.paused);
@@ -125,6 +136,139 @@
     function playIndex(index) {
         if (index < 0 || index >= queue.length) return;
         setTrack(queue[index], index, true);
+    }
+
+    function updateListenAlongControls() {
+        const locked = Boolean(joinedHost);
+        toggle.disabled = locked;
+        player.querySelector("[data-player-previous]").disabled = locked;
+        player.querySelector("[data-player-next]").disabled = locked;
+        seek.disabled = locked || !activeTrack;
+        player.classList.toggle("is-listening-along", locked);
+        renderQueue();
+    }
+
+    function showListenAlongNotice(message) {
+        const notice = player.querySelector("[data-listen-along-notice]");
+        notice.textContent = message;
+        notice.hidden = false;
+        window.setTimeout(() => { notice.hidden = true; }, 5000);
+    }
+
+    function resetListenAlong(message = "") {
+        joinedHost = null;
+        try { sessionStorage.removeItem("koboki.listen-along.v1"); } catch (_) { /* Ignore storage failures. */ }
+        const banner = player.querySelector("[data-listen-along-banner]");
+        banner.hidden = true;
+        banner.removeAttribute("data-host");
+        banner.removeAttribute("data-host-endpoint");
+        banner.removeAttribute("data-leave-url");
+        updateListenAlongControls();
+        if (message) showListenAlongNotice(message);
+    }
+
+    async function leaveListenAlong({ beacon = false, message = "" } = {}) {
+        const banner = player.querySelector("[data-listen-along-banner]");
+        const leaveUrl = joinedHost?.leaveUrl || banner.dataset.leaveUrl;
+        const csrf = playerLikeForm.querySelector("[name=csrfmiddlewaretoken]")?.value;
+        resetListenAlong(message);
+        if (!leaveUrl || !csrf) return;
+        if (beacon && navigator.sendBeacon) {
+            const formData = new FormData();
+            formData.append("csrfmiddlewaretoken", csrf);
+            navigator.sendBeacon(leaveUrl, formData);
+            return;
+        }
+        fetch(leaveUrl, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "X-CSRFToken": csrf, "Accept": "application/json" },
+        }).catch(() => {});
+    }
+
+    async function synchronizeWithHost() {
+        if (!joinedHost || syncInFlight || document.hidden) return;
+        syncInFlight = true;
+        try {
+            const response = await fetch(joinedHost.endpoint, {
+                credentials: "same-origin",
+                headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+            });
+            if (!response.ok) throw new Error("Сеанс недоступен");
+            const state = await response.json();
+            if (!state.visible || !state.track || !state.audio_url) {
+                audio.pause();
+                leaveListenAlong({ message: `Сеанс с @${joinedHost.username} завершён` });
+                return;
+            }
+            if (!activeTrack || String(activeTrack.id) !== String(state.track_id)) {
+                const hostTrack = {
+                    id: String(state.track_id),
+                    url: state.audio_url,
+                    title: state.track.title,
+                    artist: state.track.artist,
+                    cover: state.cover_url || "",
+                    playlistId: state.playlist_id ? String(state.playlist_id) : "",
+                    liked: false,
+                    likeCount: 0,
+                };
+                queue = [hostTrack];
+                setTrack(hostTrack, 0, false);
+            }
+            const drift = Math.abs(audio.currentTime - Number(state.position_seconds || 0));
+            if (drift > 2) audio.currentTime = Number(state.position_seconds || 0);
+            if (state.is_playing && audio.paused) audio.play().catch(() => {});
+            if (!state.is_playing && !audio.paused) audio.pause();
+            player.querySelectorAll("[data-host-listener-count]").forEach((counter) => {
+                counter.textContent = `С вами слушают: ${state.listener_count || 0}`;
+                counter.hidden = false;
+            });
+        } catch (_) {
+            leaveListenAlong({ message: "Не удалось продолжить совместное прослушивание" });
+        } finally {
+            syncInFlight = false;
+        }
+    }
+
+    async function joinListenAlong(form) {
+        const playRequest = audio.play();
+        if (playRequest && typeof playRequest.catch === "function") playRequest.catch(() => {});
+        const csrf = form.querySelector("[name=csrfmiddlewaretoken]")?.value;
+        if (!csrf) {
+            form.submit();
+            return;
+        }
+        try {
+            const response = await fetch(form.action, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "Accept": "application/json",
+                    "X-CSRFToken": csrf,
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Не удалось подключиться");
+            joinedHost = {
+                username: result.host,
+                endpoint: result.endpoint,
+                leaveUrl: result.leave_url,
+            };
+            try { sessionStorage.setItem("koboki.listen-along.v1", JSON.stringify(joinedHost)); } catch (_) { /* Ignore storage failures. */ }
+            const banner = player.querySelector("[data-listen-along-banner]");
+            banner.dataset.host = joinedHost.username;
+            banner.dataset.hostEndpoint = joinedHost.endpoint;
+            banner.dataset.leaveUrl = joinedHost.leaveUrl;
+            player.querySelector("[data-listen-along-host]").textContent = `@${joinedHost.username}`;
+            banner.hidden = false;
+            updateListenAlongControls();
+            await synchronizeWithHost();
+            if (playRequest && typeof playRequest.catch === "function") playRequest.catch(() => {});
+        } catch (error) {
+            if (playRequest && typeof playRequest.catch === "function") playRequest.catch(() => {});
+            showListenAlongNotice(error.message || "Не удалось подключиться к сеансу");
+        }
     }
 
     function trackFromButton(button) {
@@ -142,6 +286,7 @@
     }
 
     function playFromButton(button) {
+        if (joinedHost) leaveListenAlong();
         const list = button.closest("[data-track-list]");
         queue = list ? Array.from(list.querySelectorAll("[data-track-play]"), trackFromButton) : [trackFromButton(button)];
         queueIndex = queue.findIndex((track) => track.id === button.dataset.trackId);
@@ -170,6 +315,7 @@
     document.addEventListener("click", (event) => {
         const playlistButton = event.target.closest("[data-play-playlist]");
         if (playlistButton) {
+            if (joinedHost) leaveListenAlong();
             const playlistId = playlistButton.dataset.playlistId;
             const list = document.querySelector(`[data-playlist-track-list="${CSS.escape(playlistId)}"]`);
             if (!list) return;
@@ -200,6 +346,18 @@
     });
 
     document.addEventListener("submit", async (event) => {
+        const joinForm = event.target.closest("[data-listen-along-join]");
+        if (joinForm) {
+            event.preventDefault();
+            joinListenAlong(joinForm);
+            return;
+        }
+        const leaveForm = event.target.closest("[data-listen-along-leave]");
+        if (leaveForm) {
+            event.preventDefault();
+            leaveListenAlong();
+            return;
+        }
         const form = event.target.closest("[data-like-form]");
         if (!form) return;
         event.preventDefault();
@@ -300,11 +458,14 @@
         const target = event.target;
         if (event.code !== "Space" || target.matches("input, textarea, select, button, [contenteditable='true']")) return;
         event.preventDefault();
-        if (!activeTrack) return;
+        if (!activeTrack || joinedHost) return;
         if (audio.paused) audio.play().catch(() => {});
         else audio.pause();
     });
-    window.addEventListener("beforeunload", () => sendNowPlaying(false, true));
+    window.addEventListener("beforeunload", () => {
+        sendNowPlaying(false, true);
+        if (joinedHost) leaveListenAlong({ beacon: true });
+    });
     window.setInterval(() => {
         if (activeTrack) sendNowPlaying(!audio.paused);
     }, 5000);
@@ -315,12 +476,12 @@
         const indicator = card.querySelector("[data-now-indicator]");
         if (!data.visible) {
             status.textContent = "Пользователь скрыл эту информацию.";
-            details.hidden = true;
+            if (details) details.hidden = true;
             indicator.classList.remove("is-playing");
             return;
         }
         if (!data.track) {
-            details.hidden = true;
+            if (details) details.hidden = true;
             status.textContent = data.last_seen_minutes
                 ? `Был(а) в сети ${data.last_seen_minutes} мин. назад`
                 : "Сейчас не слушает";
@@ -346,6 +507,8 @@
         card.dataset.syncedAt = String(Date.now());
         status.textContent = data.is_playing ? "Слушает сейчас" : "Пауза";
         indicator.classList.toggle("is-playing", Boolean(data.is_playing));
+        const listenerCount = card.querySelector("[data-host-listener-count]");
+        if (listenerCount) listenerCount.textContent = `С вами слушают: ${data.listener_count || 0}`;
         renderNowPlayingProgress(card);
     }
 
@@ -379,8 +542,12 @@
         document.querySelectorAll("[data-now-playing-card]").forEach(renderNowPlayingProgress);
     }, 1000);
     window.setInterval(pollNowPlayingCards, 5000);
+    window.setInterval(synchronizeWithHost, 3000);
     document.addEventListener("visibilitychange", () => {
-        if (!document.hidden) pollNowPlayingCards();
+        if (!document.hidden) {
+            pollNowPlayingCards();
+            synchronizeWithHost();
+        }
     });
 
     try {
@@ -395,4 +562,14 @@
             renderQueue();
         }
     } catch (_) { /* Ignore malformed or unavailable session state. */ }
+
+    if (!listenBanner.hidden && listenBanner.dataset.host) {
+        joinedHost = {
+            username: listenBanner.dataset.host,
+            endpoint: listenBanner.dataset.hostEndpoint,
+            leaveUrl: listenBanner.dataset.leaveUrl,
+        };
+        updateListenAlongControls();
+        synchronizeWithHost();
+    }
 })();

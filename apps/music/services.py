@@ -5,9 +5,11 @@ from django.db.models import Avg, Count, Exists, OuterRef, Q
 from django.utils import timezone
 from datetime import timedelta
 
+from apps.accounts.models import Follow
 from .models import (
     Album,
     Like,
+    ListenAlong,
     MusicSettings,
     NowPlaying,
     Playlist,
@@ -303,7 +305,12 @@ def now_playing_snapshot(subject, viewer):
         "track__owner", "track__album", "playlist"
     ).first()
     if state is None:
-        return {"visible": True, "is_listening": False, "last_seen_minutes": None}
+        return {
+            "visible": True,
+            "is_listening": False,
+            "last_seen_minutes": None,
+            "listener_count": active_listener_count(subject),
+        }
 
     now = timezone.now()
     age_seconds = max(0, (now - state.updated_at).total_seconds())
@@ -313,6 +320,7 @@ def now_playing_snapshot(subject, viewer):
             "visible": True,
             "is_listening": False,
             "last_seen_minutes": max(1, int((age_seconds + 59) // 60)),
+            "listener_count": 0,
         }
 
     position = state.position_seconds
@@ -337,7 +345,54 @@ def now_playing_snapshot(subject, viewer):
         "duration_seconds": state.duration_seconds,
         "updated_at": state.updated_at,
         "last_seen_minutes": None,
+        "listener_count": active_listener_count(subject),
     }
+
+
+def can_join_session(listener, host):
+    if listener.pk == host.pk:
+        return False
+    preferences = MusicSettings.objects.filter(user=host).first()
+    if preferences is not None:
+        if not preferences.show_now_playing or preferences.allow_join == MusicSettings.JOIN_NOBODY:
+            return False
+        if preferences.allow_join == MusicSettings.JOIN_FOLLOWERS and not Follow.objects.filter(
+            follower=listener, following=host
+        ).exists():
+            return False
+    return NowPlaying.objects.filter(
+        user=host,
+        is_playing=True,
+        updated_at__gte=timezone.now() - timedelta(seconds=15),
+    ).exists()
+
+
+def join_session(listener, host):
+    if listener.pk == host.pk:
+        raise ValidationError("Нельзя подключиться к собственному плееру.")
+    if not can_join_session(listener, host):
+        raise PermissionDenied("Сеанс недоступен или хозяин сейчас не слушает.")
+    session, _created = ListenAlong.objects.update_or_create(
+        listener=listener,
+        defaults={"host": host},
+    )
+    return session
+
+
+def leave_session(listener):
+    ListenAlong.objects.filter(listener=listener).delete()
+
+
+def active_listener_count(host):
+    cutoff = timezone.now() - timedelta(seconds=15)
+    return ListenAlong.objects.filter(
+        host=host,
+        listener__music_now_playing__updated_at__gte=cutoff,
+    ).count()
+
+
+def get_listen_along(listener):
+    return ListenAlong.objects.filter(listener=listener).select_related("host").first()
 
 
 def update_music_settings(user, *, show_now_playing, allow_join):

@@ -1,5 +1,19 @@
+{% load music_tags %}
+{% listen_along_session as listen_session %}
 <section class="music-player" data-music-player data-now-playing-url="{% url 'music:now_playing_update' %}" aria-label="Музыкальный плеер">
     <audio id="music-audio" preload="metadata"></audio>
+    <div class="listen-along-banner" data-listen-along-banner
+        {% if not listen_session %}hidden{% else %}
+            data-host="{{ listen_session.host.username }}"
+            data-host-endpoint="{% url 'music:now_playing_detail' listen_session.host.username %}"
+            data-leave-url="{% url 'music:listen_along_leave' %}"
+        {% endif %}>
+        <span>Вы слушаете вместе с <strong data-listen-along-host>{% if listen_session %}@{{ listen_session.host.username }}{% endif %}</strong></span>
+        <form method="post" action="{% url 'music:listen_along_leave' %}" data-listen-along-leave>
+            {% csrf_token %}<button type="submit">Выйти</button>
+        </form>
+    </div>
+    <p class="listen-along-notice" data-listen-along-notice hidden></p>
     <div class="music-player-track">
         <div class="music-player-cover" data-player-cover aria-hidden="true"><span>♫</span></div>
         <div class="music-player-copy">
@@ -32,6 +46,7 @@
             <input type="range" min="0" max="1" step="0.01" value="0.8" data-player-volume>
         </label>
         <button class="music-player-icon" type="button" data-queue-toggle aria-expanded="false" aria-controls="music-queue">Очередь</button>
+        <span class="music-player-listener-count" data-host-listener-count hidden>С вами слушают: 0</span>
     </div>
     <div class="music-queue" id="music-queue" data-player-queue hidden>
         <h2>Очередь воспроизведения</h2>

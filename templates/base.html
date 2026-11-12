@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="{% static 'css/music.css' %}?v=1">
     <script src="{% static 'js/player.js' %}?v=1" defer></script>
 </head>
-<body>
+<body{% if request.resolver_match.app_name == 'music' %} class="music-page"{% endif %}>
     <div class="app-shell">
         <aside class="sidebar">
             <a class="brand" href="{% url 'feed:feed' %}" aria-label="Koboki — лента">

@@ -1,11 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 import json
 
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from . import services
@@ -387,7 +388,11 @@ def now_playing_update(request):
         )
     except (json.JSONDecodeError, TypeError, AttributeError, ValidationError) as error:
         return JsonResponse({"error": str(error)}, status=400)
-    return JsonResponse({"ok": True, "updated_at": state.updated_at.isoformat()})
+    return JsonResponse({
+        "ok": True,
+        "updated_at": state.updated_at.isoformat(),
+        "listener_count": services.active_listener_count(request.user),
+    })
 
 
 @login_required
@@ -407,6 +412,14 @@ def now_playing_detail(request, username):
         data.update({
             "is_playing": snapshot["is_playing"],
             "track": {"title": track.title, "artist": track.artist},
+            "track_id": track.pk,
+            "audio_url": track.audio_file.url,
+            "cover_url": (
+                playlist.cover.url if playlist and playlist.cover
+                else track.album.cover.url if track.album_id and track.album.cover
+                else None
+            ),
+            "playlist_id": playlist.pk if playlist else None,
             "position_seconds": snapshot["position_seconds"],
             "duration_seconds": snapshot["duration_seconds"],
             "updated_at": snapshot["updated_at"].isoformat(),
@@ -418,7 +431,35 @@ def now_playing_detail(request, username):
                 {"label": "из библиотеки", "url": None}
             ),
         })
+    data["listener_count"] = snapshot.get("listener_count", 0)
     return JsonResponse(data)
+
+
+@login_required
+@require_POST
+def listen_along_join(request, username):
+    host = get_object_or_404(User, username=username)
+    try:
+        services.join_session(request.user, host)
+    except ValidationError as error:
+        return JsonResponse({"error": "; ".join(error.messages)}, status=400)
+    except PermissionDenied as error:
+        return JsonResponse({"error": str(error)}, status=403)
+    return JsonResponse({
+        "ok": True,
+        "host": host.username,
+        "endpoint": reverse("music:now_playing_detail", args=[host.username]),
+        "leave_url": reverse("music:listen_along_leave"),
+    })
+
+
+@login_required
+@require_POST
+def listen_along_leave(request):
+    services.leave_session(request.user)
+    if request.headers.get("Accept", "").find("application/json") >= 0:
+        return JsonResponse({"ok": True})
+    return redirect("music:library")
 
 
 @login_required

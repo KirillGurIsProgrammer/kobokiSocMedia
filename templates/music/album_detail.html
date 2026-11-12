@@ -3,6 +3,7 @@
 {% block title %}{{ album.title }}{% endblock %}
 
 {% block content %}
+<div class="music-library">
 <h1>{{ album.title }}</h1>
 {% if album.cover %}<img src="{{ album.cover.url }}" alt="Обложка альбома {{ album.title }}" class="cover">{% endif %}
 <p>Автор: <a href="{% url 'accounts:profile' album.owner.username %}">{{ album.owner.username }}</a></p>
@@ -47,4 +48,5 @@
   {{ review_form.as_p }}
   <button type="submit">Отправить</button>
 </form>
+ </div>
 {% endblock %}

@@ -7,13 +7,15 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.template import Context, Template
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
+from apps.accounts.models import Follow
 from django.urls import reverse
 
 from apps.core.validators import validate_audio
 from apps.music import services
-from apps.music.models import Like, MusicSettings, NowPlaying, Playlist, Track
+from apps.music.models import Like, ListenAlong, MusicSettings, NowPlaying, Playlist, Track
 
 TEMP_MEDIA = tempfile.mkdtemp()
 
@@ -212,6 +214,66 @@ class MusicTests(TestCase):
         state = NowPlaying.objects.get(user=self.alice)
         self.assertEqual(state.track, self.track)
         self.assertEqual(state.position_seconds, 4.5)
+
+    def test_join_session_rejects_self_and_offline_hosts(self):
+        with self.assertRaises(ValidationError):
+            services.join_session(self.alice, self.alice)
+        with self.assertRaises(PermissionDenied):
+            services.join_session(self.bob, self.alice)
+
+    def test_join_session_checks_follower_setting_and_can_leave(self):
+        NowPlaying.objects.create(user=self.alice, track=self.track, is_playing=True)
+        preferences = MusicSettings.objects.create(
+            user=self.alice,
+            allow_join=MusicSettings.JOIN_FOLLOWERS,
+        )
+        self.assertFalse(services.can_join_session(self.bob, self.alice))
+
+        Follow.objects.create(follower=self.bob, following=self.alice)
+        self.assertTrue(services.can_join_session(self.bob, self.alice))
+        session = services.join_session(self.bob, self.alice)
+        self.assertEqual(session.host, self.alice)
+        NowPlaying.objects.create(user=self.bob, track=self.track, is_playing=True)
+        self.assertEqual(services.active_listener_count(self.alice), 1)
+        services.leave_session(self.bob)
+        self.assertEqual(services.active_listener_count(self.alice), 0)
+        self.assertFalse(ListenAlong.objects.filter(listener=self.bob).exists())
+
+        preferences.allow_join = MusicSettings.JOIN_NOBODY
+        preferences.save(update_fields=("allow_join",))
+        self.assertFalse(services.can_join_session(self.bob, self.alice))
+
+    def test_join_session_requires_fresh_playing_host_state(self):
+        state = NowPlaying.objects.create(user=self.alice, track=self.track, is_playing=True)
+        NowPlaying.objects.filter(pk=state.pk).update(
+            updated_at=timezone.now() - timedelta(seconds=16)
+        )
+        self.assertFalse(services.can_join_session(self.bob, self.alice))
+
+    def test_join_and_leave_api(self):
+        NowPlaying.objects.create(user=self.alice, track=self.track, is_playing=True)
+        self.client.login(username="bob", password="pass12345")
+
+        joined = self.client.post(
+            reverse("music:listen_along_join", args=[self.alice.username]),
+            HTTP_ACCEPT="application/json",
+        )
+        self.assertEqual(joined.status_code, 200)
+        self.assertEqual(joined.json()["host"], self.alice.username)
+        self.assertTrue(ListenAlong.objects.filter(listener=self.bob, host=self.alice).exists())
+
+        left = self.client.post(reverse("music:listen_along_leave"), HTTP_ACCEPT="application/json")
+        self.assertEqual(left.status_code, 200)
+        self.assertFalse(ListenAlong.objects.filter(listener=self.bob).exists())
+
+    def test_now_playing_template_tag_renders_card(self):
+        NowPlaying.objects.create(user=self.alice, track=self.track, is_playing=True)
+        rendered = Template(
+            "{% load music_tags %}{% now_playing_card profile_user %}"
+        ).render(Context({"profile_user": self.alice, "user": self.bob}))
+
+        self.assertIn("Сейчас слушает", rendered)
+        self.assertIn("Слушать вместе", rendered)
 
     def test_foreign_track_cannot_be_deleted(self):
         self.client.login(username="bob", password="pass12345")

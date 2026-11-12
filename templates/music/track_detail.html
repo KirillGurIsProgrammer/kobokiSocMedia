@@ -3,6 +3,7 @@
 {% block title %}{{ track.title }}{% endblock %}
 
 {% block content %}
+<div class="music-library">
 <h1>{{ track.artist }} — {{ track.title }}</h1>
 <p>
   Исполнитель: <a href="{% url 'accounts:profile' track.owner.username %}">{{ track.owner.username }}</a>
@@ -44,4 +45,5 @@
   {{ review_form.as_p }}
   <button type="submit">Отправить</button>
 </form>
+ </div>
 {% endblock %}

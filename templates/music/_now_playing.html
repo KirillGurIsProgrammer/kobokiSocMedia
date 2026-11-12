@@ -1,16 +1,14 @@
 <section class="now-playing-card" data-now-playing-card data-endpoint="{{ endpoint }}" aria-live="polite">
     <div class="music-section-heading">
         <div><span class="eyebrow">МУЗЫКА</span><h2>Сейчас слушает</h2></div>
-        <span class="now-playing-indicator" data-now-indicator aria-hidden="true"></span>
+        <span class="now-playing-indicator{% if snapshot.is_playing %} is-playing{% endif %}" data-now-indicator aria-hidden="true"></span>
     </div>
-    {% if not snapshot.visible %}
-        <p class="now-playing-status" data-now-status>Пользователь скрыл эту информацию.</p>
-    {% elif snapshot.track %}
-        <div data-now-details>
+    {% if snapshot.visible %}
+        <div data-now-details {% if not snapshot.track %}hidden{% endif %}>
             <strong class="now-playing-title" data-now-title>{{ snapshot.track.title }}</strong>
             <span class="now-playing-artist" data-now-artist>{{ snapshot.track.artist }}</span>
             <span class="now-playing-source" data-now-source>
-                {% if source.url %}<a href="{{ source.url }}">{{ source.label }}</a>{% else %}{{ source.label }}{% endif %}
+                {% if source.url %}<a href="{{ source.url }}">{{ source.label }}</a>{% elif source %}{{ source.label }}{% endif %}
             </span>
             <div class="now-playing-progress">
                 <span data-now-current>{{ snapshot.position_label }}</span>
@@ -18,9 +16,20 @@
                 <span data-now-duration>{{ snapshot.duration_label }}</span>
             </div>
         </div>
-        <p class="now-playing-status" data-now-status>{% if snapshot.is_playing %}Слушает сейчас{% else %}Пауза{% endif %}</p>
+        <p class="now-playing-status" data-now-status>
+            {% if snapshot.track %}{% if snapshot.is_playing %}Слушает сейчас{% else %}Пауза{% endif %}
+            {% elif snapshot.last_seen_minutes %}Был(а) в сети {{ snapshot.last_seen_minutes }} мин. назад
+            {% else %}Сейчас не слушает{% endif %}
+        </p>
+        <p class="now-playing-listeners" data-host-listener-count {% if not snapshot.track %}hidden{% endif %}>С вами слушают: {{ snapshot.listener_count|default:0 }}</p>
+        {% if can_join and snapshot.track and snapshot.is_playing %}
+        <form method="post" action="{% url 'music:listen_along_join' profile_user.username %}" data-listen-along-join data-host-name="{{ profile_user.username }}">
+            {% csrf_token %}
+            <button class="button button--small" type="submit">Слушать вместе</button>
+        </form>
+        {% endif %}
     {% else %}
-        <p class="now-playing-status" data-now-status>{% if snapshot.last_seen_minutes %}Был(а) в сети {{ snapshot.last_seen_minutes }} мин. назад{% else %}Сейчас не слушает{% endif %}</p>
+        <p class="now-playing-status" data-now-status>Пользователь скрыл эту информацию.</p>
         <div data-now-details hidden></div>
     {% endif %}
 </section>
