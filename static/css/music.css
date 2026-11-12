@@ -29,6 +29,13 @@
 .music-track-copy span { overflow: hidden; color: #a198a5; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .music-track-copy a:hover { color: #ff8eb7; }
 .music-track-owner { max-width: 120px; overflow: hidden; color: #827986; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.music-like-form, .music-player-like-form { display: flex; flex: 0 0 auto; align-items: center; gap: 3px; margin: 0; }
+.music-like-button { width: 28px; height: 28px; border: 0; border-radius: 50%; color: #a198a5; background: transparent; cursor: pointer; font: inherit; font-size: 18px; }
+.music-like-button:hover, .music-like-button.is-liked { color: #ff5593; }
+.music-like-count, .music-player-like-count { min-width: 12px; color: #8c838f; font-size: 8px; text-align: center; }
+.music-player-like-form { flex-direction: column; gap: 0; }
+.music-player-like-form .music-player-icon { color: #aaa1ad; font-size: 19px !important; line-height: 1; }
+.music-player-like-form .music-player-icon.is-liked { color: #ff5593; }
 .music-empty { display: grid; min-height: 145px; place-content: center; justify-items: center; padding: 22px; color: #928995; text-align: center; }
 .music-empty > span { display: grid; width: 37px; height: 37px; place-items: center; margin-bottom: 7px; border-radius: 10px; color: #ff5593; background: #301724; font-size: 18px; }
 .music-empty strong { color: #d9d2dc; font-size: 11px; }

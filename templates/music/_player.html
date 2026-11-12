@@ -6,7 +6,11 @@
             <strong data-player-title>Выберите трек</strong>
             <span data-player-artist>Музыка Koboki</span>
         </div>
-        <button class="music-player-icon" type="button" data-player-like aria-label="Нравится" title="Нравится" disabled>♡</button>
+        <form class="music-player-like-form" method="post" action="{% url 'music:toggle_like' 0 %}" data-player-like-form data-like-form data-track-id="">
+            {% csrf_token %}
+            <button class="music-player-icon" type="submit" data-player-like aria-label="Нравится" title="Нравится" disabled aria-pressed="false">♡</button>
+            <span class="music-player-like-count" data-like-count></span>
+        </form>
     </div>
 
     <div class="music-player-controls">

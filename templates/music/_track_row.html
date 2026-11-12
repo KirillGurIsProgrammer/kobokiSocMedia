@@ -1,4 +1,4 @@
-<article class="music-track-row" data-track-id="{{ track.pk }}">
+<article class="music-track-row" data-track-id="{{ track.pk }}" data-liked="{{ track.liked_by_user|yesno:'true,false' }}" data-like-count="{{ track.like_count|default:0 }}">
     <button class="music-track-play" type="button"
         data-track-play
         data-track-id="{{ track.pk }}"
@@ -12,5 +12,12 @@
         <a href="{{ track.get_absolute_url }}"><strong>{{ track.title }}</strong></a>
         <span>{{ track.artist }}{% if track.album %} · <a href="{{ track.album.get_absolute_url }}">{{ track.album.title }}</a>{% endif %}</span>
     </div>
+    <form class="music-like-form" method="post" action="{% url 'music:toggle_like' track.pk %}" data-like-form data-track-id="{{ track.pk }}">
+        {% csrf_token %}
+        <button class="music-like-button{% if track.liked_by_user %} is-liked{% endif %}" type="submit" aria-pressed="{{ track.liked_by_user|yesno:'true,false' }}" aria-label="{% if track.liked_by_user %}Убрать из понравившихся{% else %}Нравится{% endif %}">
+            {% if track.liked_by_user %}♥{% else %}♡{% endif %}
+        </button>
+        <span class="music-like-count" data-like-count>{{ track.like_count|default:0 }}</span>
+    </form>
     <span class="music-track-owner">{{ track.owner.username }}</span>
 </article>

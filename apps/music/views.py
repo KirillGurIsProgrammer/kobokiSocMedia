@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -17,7 +18,7 @@ def _render_library(request, owner):
     return render(request, "music/track_list.html", {
         "owner": owner,
         "is_mine": owner == request.user,
-        "tracks": services.search_tracks(owner, q),
+        "tracks": services.search_tracks(owner, q, user=request.user),
         "discover_tracks": services.get_discover_tracks(request.user, q),
         "albums": owner.albums.all(),
         "q": q,
@@ -80,7 +81,12 @@ def track_edit(request, pk):
 
 @login_required
 def track_detail(request, pk):
-    track = get_object_or_404(Track.objects.select_related("owner", "album"), pk=pk)
+    track = get_object_or_404(
+        services.with_like_data(
+            Track.objects.select_related("owner", "album"), request.user
+        ),
+        pk=pk,
+    )
     prev_track, next_track = services.get_neighbors(track)
     return render(request, "music/track_detail.html", {
         "track": track,
@@ -150,7 +156,9 @@ def album_detail(request, pk):
     album = get_object_or_404(Album.objects.select_related("owner"), pk=pk)
     return render(request, "music/album_detail.html", {
         "album": album,
-        "tracks": album.tracks.all(),
+        "tracks": services.with_like_data(
+            album.tracks.select_related("owner", "album"), request.user
+        ),
         "reviews": album.reviews.select_related("author"),
         "rating": services.average_rating(album),
         "review_form": ReviewForm(),
@@ -181,6 +189,16 @@ def _handle_review(request, *, track=None, album=None):
 @require_POST
 def track_review(request, pk):
     return _handle_review(request, track=get_object_or_404(Track, pk=pk))
+
+
+@login_required
+@require_POST
+def toggle_like(request, track_id):
+    track = get_object_or_404(Track, pk=track_id)
+    liked, like_count = services.toggle_like(request.user, track)
+    if request.headers.get("Accept", "").find("application/json") >= 0:
+        return JsonResponse({"liked": liked, "like_count": like_count})
+    return redirect(track.get_absolute_url())
 
 
 @login_required

@@ -49,6 +49,32 @@ class Track(models.Model):
         return reverse("music:track_detail", args=[self.pk])
 
 
+class Like(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="music_likes",
+    )
+    track = models.ForeignKey(
+        Track,
+        on_delete=models.CASCADE,
+        related_name="likes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "track"),
+                name="unique_music_like_per_user_track",
+            ),
+        ]
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"{self.user} likes {self.track}"
+
+
 class Review(models.Model):
     """A review for exactly one track or album."""
 

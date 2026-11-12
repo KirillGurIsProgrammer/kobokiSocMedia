@@ -1,12 +1,23 @@
 """Music business rules called by the views."""
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Avg, Q
+from django.db import IntegrityError, transaction
+from django.db.models import Avg, Count, Exists, OuterRef, Q
 
-from .models import Album, Review, Track
+from .models import Album, Like, Review, Track
 
 
-def search_tracks(owner, query=""):
-    qs = Track.objects.filter(owner=owner).select_related("album")
+def with_like_data(queryset, user):
+    likes_by_user = Like.objects.filter(track_id=OuterRef("pk"), user=user)
+    return queryset.annotate(
+        like_count=Count("likes", distinct=True),
+        liked_by_user=Exists(likes_by_user),
+    )
+
+
+def search_tracks(owner, query="", *, user=None):
+    qs = Track.objects.filter(owner=owner).select_related("album", "owner")
+    if user is not None:
+        qs = with_like_data(qs, user)
     if query:
         qs = qs.filter(Q(title__icontains=query) | Q(artist__icontains=query))
     return qs
@@ -14,10 +25,28 @@ def search_tracks(owner, query=""):
 
 def get_discover_tracks(user, query=""):
     """Return other users' tracks for the public discovery section."""
-    qs = Track.objects.exclude(owner=user).select_related("owner", "album")
+    qs = with_like_data(
+        Track.objects.exclude(owner=user).select_related("owner", "album"), user
+    )
     if query:
         qs = qs.filter(Q(title__icontains=query) | Q(artist__icontains=query))
     return qs.order_by("-uploaded_at", "-pk")
+
+
+def toggle_like(user, track):
+    """Toggle a user's like and return (liked, current_like_count)."""
+    try:
+        with transaction.atomic():
+            like, created = Like.objects.get_or_create(user=user, track=track)
+            if not created:
+                like.delete()
+                liked = False
+            else:
+                liked = True
+    except IntegrityError:
+        # A concurrent request may have created the unique pair first.
+        liked = Like.objects.filter(user=user, track=track).exists()
+    return liked, Like.objects.filter(track=track).count()
 
 
 def get_neighbors(track):

@@ -1,15 +1,17 @@
 import shutil
 import tempfile
+import json
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from apps.core.validators import validate_audio
 from apps.music import services
-from apps.music.models import Track
+from apps.music.models import Like, Track
 
 TEMP_MEDIA = tempfile.mkdtemp()
 
@@ -71,6 +73,33 @@ class MusicTests(TestCase):
         self.assertContains(response, "Рекомендации")
         self.assertContains(response, "Мои треки и альбомы")
         self.assertEqual(response.content.count(b"<audio "), 1)
+
+    def test_like_toggles_and_keeps_one_user_track_pair(self):
+        liked, count = services.toggle_like(self.bob, self.track)
+        self.assertTrue(liked)
+        self.assertEqual(count, 1)
+        self.assertEqual(Like.objects.filter(user=self.bob, track=self.track).count(), 1)
+
+        liked, count = services.toggle_like(self.bob, self.track)
+        self.assertFalse(liked)
+        self.assertEqual(count, 0)
+        self.assertFalse(Like.objects.filter(user=self.bob, track=self.track).exists())
+
+    def test_like_api_returns_json(self):
+        self.client.login(username="bob", password="pass12345")
+        response = self.client.post(
+            reverse("music:toggle_like", args=[self.track.pk]),
+            data=json.dumps({"track_id": self.track.pk}),
+            content_type="application/json",
+            HTTP_ACCEPT="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"liked": True, "like_count": 1})
+
+    def test_like_database_constraint_rejects_duplicate_pair(self):
+        Like.objects.create(user=self.bob, track=self.track)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Like.objects.create(user=self.bob, track=self.track)
 
     def test_foreign_track_cannot_be_deleted(self):
         self.client.login(username="bob", password="pass12345")

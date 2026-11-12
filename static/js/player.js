@@ -13,6 +13,9 @@
     const queueList = player.querySelector("[data-queue-items]");
     const queuePanel = player.querySelector("[data-player-queue]");
     const queueToggle = player.querySelector("[data-queue-toggle]");
+    const playerLikeForm = player.querySelector("[data-player-like-form]");
+    const playerLikeUrl = playerLikeForm.action;
+    const playerLikeButton = player.querySelector("[data-player-like]");
     const storageKey = "koboki.music-player.v1";
     let queue = [];
     let queueIndex = -1;
@@ -66,7 +69,14 @@
             cover.querySelector("span").hidden = false;
         }
         seek.disabled = false;
-        player.querySelector("[data-player-like]").disabled = true;
+        playerLikeForm.dataset.trackId = track.id;
+        playerLikeForm.action = playerLikeUrl.replace(/0\/like\/$/, `${track.id}/like/`);
+        playerLikeButton.disabled = false;
+        playerLikeButton.textContent = track.liked ? "♥" : "♡";
+        playerLikeButton.classList.toggle("is-liked", Boolean(track.liked));
+        playerLikeButton.setAttribute("aria-pressed", String(Boolean(track.liked)));
+        playerLikeButton.setAttribute("aria-label", track.liked ? "Убрать из понравившихся" : "Нравится");
+        player.querySelector(".music-player-like-count").textContent = track.likeCount || "";
     }
 
     function setTrack(track, index = -1, shouldPlay = true) {
@@ -86,6 +96,7 @@
     }
 
     function trackFromButton(button) {
+        const row = button.closest("[data-track-id]");
         return {
             id: button.dataset.trackId,
             url: button.dataset.trackUrl,
@@ -93,6 +104,8 @@
             artist: button.dataset.trackArtist,
             cover: button.dataset.trackCover || "",
             playlistId: button.dataset.playlistId || "",
+            liked: row?.dataset.liked === "true",
+            likeCount: Number(row?.dataset.likeCount || 0),
         };
     }
 
@@ -137,6 +150,57 @@
         if (url.origin !== location.origin || url.pathname.startsWith("/admin/")) return;
         event.preventDefault();
         navigate(url.href, true);
+    });
+
+    document.addEventListener("submit", async (event) => {
+        const form = event.target.closest("[data-like-form]");
+        if (!form) return;
+        event.preventDefault();
+        const id = form.dataset.trackId;
+        const csrf = form.querySelector("[name=csrfmiddlewaretoken]")?.value;
+        if (!id || !csrf) {
+            form.submit();
+            return;
+        }
+        try {
+            const response = await fetch(form.action, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrf,
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                body: JSON.stringify({ track_id: id }),
+            });
+            if (!response.ok) throw new Error("Не удалось изменить отметку");
+            const result = await response.json();
+            document.querySelectorAll("[data-like-form]").forEach((likeForm) => {
+                if (likeForm.dataset.trackId !== id) return;
+                const button = likeForm.querySelector("button[type=submit]");
+                if (!button) return;
+                button.textContent = result.liked ? "♥" : "♡";
+                button.classList.toggle("is-liked", result.liked);
+                button.setAttribute("aria-pressed", String(result.liked));
+                button.setAttribute("aria-label", result.liked ? "Убрать из понравившихся" : "Нравится");
+                const count = likeForm.querySelector("[data-like-count]");
+                if (count) count.textContent = result.like_count;
+            });
+            document.querySelectorAll("[data-track-id]").forEach((row) => {
+                if (row.dataset.trackId === id) {
+                    row.dataset.liked = String(result.liked);
+                    row.dataset.likeCount = String(result.like_count);
+                }
+            });
+            if (activeTrack?.id === id) {
+                activeTrack.liked = result.liked;
+                activeTrack.likeCount = result.like_count;
+                saveState();
+            }
+        } catch (_) {
+            form.submit();
+        }
     });
 
     async function navigate(url, push) {
