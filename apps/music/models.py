@@ -75,6 +75,82 @@ class Like(models.Model):
         return f"{self.user} likes {self.track}"
 
 
+class Playlist(models.Model):
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="music_playlists",
+    )
+    title = models.CharField("Название", max_length=100)
+    description = models.TextField("Описание", blank=True, max_length=1000)
+    cover = models.ImageField(
+        "Обложка",
+        upload_to="playlists/",
+        blank=True,
+        validators=[validate_image],
+    )
+    is_public = models.BooleanField("Публичный плейлист", default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-pk")
+
+    def __str__(self):
+        return self.title
+
+    def get_absolute_url(self):
+        return reverse("music:playlist_detail", args=[self.pk])
+
+
+class PlaylistTrack(models.Model):
+    playlist = models.ForeignKey(
+        Playlist,
+        on_delete=models.CASCADE,
+        related_name="playlist_tracks",
+    )
+    track = models.ForeignKey(
+        Track,
+        on_delete=models.CASCADE,
+        related_name="playlist_entries",
+    )
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ("position", "pk")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("playlist", "track"),
+                name="unique_track_per_playlist",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.playlist}: {self.track}"
+
+
+class SavedPlaylist(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="saved_music_playlists",
+    )
+    playlist = models.ForeignKey(
+        Playlist,
+        on_delete=models.CASCADE,
+        related_name="saves",
+    )
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-saved_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "playlist"),
+                name="unique_saved_playlist_per_user",
+            ),
+        ]
+
+
 class Review(models.Model):
     """A review for exactly one track or album."""
 

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Плейлисты · Музыка{% endblock %}
+{% block content %}
+<div class="music-library">
+    <header class="music-heading">
+        <div><span class="eyebrow"><span class="eyebrow-dot"></span> МУЗЫКА KOBOKI</span><h1>Плейлисты</h1><p>Собирай музыку в коллекции и находи подборки сообщества.</p></div>
+        <a class="button button--small" href="{% url 'music:playlist_create' %}">Новый плейлист <span>＋</span></a>
+    </header>
+    <nav class="music-tabs" aria-label="Разделы плейлистов">
+        <a href="#mine">Мои плейлисты</a><a href="#saved">Сохранённые</a><a href="#community">Плейлисты сообщества</a>
+    </nav>
+    <section class="music-section" id="mine">
+        <div class="music-section-heading"><div><span class="eyebrow">СОЗДАНО ТОБОЙ</span><h2>Мои плейлисты</h2></div></div>
+        <div class="playlist-grid">
+            {% for playlist in my_playlists %}{% include "music/_playlist_card.html" %}
+            {% empty %}<div class="music-empty"><span>♫</span><strong>Плейлистов пока нет</strong><p>Создай первую подборку и добавь в неё треки.</p></div>{% endfor %}
+        </div>
+    </section>
+    <section class="music-section" id="saved">
+        <div class="music-section-heading"><div><span class="eyebrow">ТВОЯ КОЛЛЕКЦИЯ</span><h2>Сохранённые плейлисты</h2></div></div>
+        <div class="playlist-grid">
+            {% for playlist in saved_playlists %}{% include "music/_playlist_card.html" %}
+            {% empty %}<div class="music-empty"><span>♡</span><strong>Сохранённых подборок пока нет</strong><p>Сохраняй понравившиеся публичные плейлисты сообщества.</p></div>{% endfor %}
+        </div>
+    </section>
+    <section class="music-section" id="community">
+        <div class="music-section-heading"><div><span class="eyebrow">ОТ СООБЩЕСТВА</span><h2>Публичные плейлисты</h2></div></div>
+        <div class="playlist-grid">
+            {% for playlist in public_playlists %}{% include "music/_playlist_card.html" %}
+            {% empty %}<div class="music-empty"><span>♫</span><strong>Публичных плейлистов пока нет</strong><p>Загляни позже — здесь появятся подборки участников.</p></div>{% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

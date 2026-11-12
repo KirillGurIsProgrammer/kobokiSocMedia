@@ -6,7 +6,7 @@
         data-track-title="{{ track.title }}"
         data-track-artist="{{ track.artist }}"
         data-track-cover="{% if track.album and track.album.cover %}{{ track.album.cover.url }}{% endif %}"
-        data-playlist-id=""
+        data-playlist-id="{{ playlist.pk|default:'' }}"
         aria-label="Воспроизвести: {{ track.title }} — {{ track.artist }}">▶</button>
     <div class="music-track-copy">
         <a href="{{ track.get_absolute_url }}"><strong>{{ track.title }}</strong></a>

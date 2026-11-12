@@ -17,9 +17,9 @@
 
     <nav class="music-tabs" aria-label="Разделы музыки">
         <a href="#recommendations">Рекомендации</a>
-        <a href="#liked">Понравившиеся</a>
-        <a href="#my-playlists">Мои плейлисты</a>
-        <a href="#saved-playlists">Сохранённые</a>
+        <a href="{% url 'music:liked_tracks' %}">Понравившиеся</a>
+        <a href="{% url 'music:playlists' %}#mine">Мои плейлисты</a>
+        <a href="{% url 'music:playlists' %}#saved">Сохранённые</a>
         <a href="#my-music">Мои треки и альбомы</a>
     </nav>
 
@@ -41,15 +41,15 @@
 
     <section class="music-section music-section-compact" id="liked">
         <div class="music-section-heading"><div><span class="eyebrow">ТВОЯ КОЛЛЕКЦИЯ</span><h2>Понравившиеся</h2></div></div>
-        <p class="music-coming-soon">Сохраняй любимые треки сердцем в следующем обновлении.</p>
+        <p class="music-coming-soon"><a href="{% url 'music:liked_tracks' %}">Открыть понравившиеся треки →</a></p>
     </section>
     <section class="music-section music-section-compact" id="my-playlists">
         <div class="music-section-heading"><div><span class="eyebrow">СОБРАННОЕ ТОБОЙ</span><h2>Мои плейлисты</h2></div></div>
-        <p class="music-coming-soon">Создание плейлистов появится в следующем обновлении.</p>
+        <p class="music-coming-soon"><a href="{% url 'music:playlists' %}#mine">Создать и открыть плейлисты →</a></p>
     </section>
     <section class="music-section music-section-compact" id="saved-playlists">
         <div class="music-section-heading"><div><span class="eyebrow">ИЗ СООБЩЕСТВА</span><h2>Сохранённые плейлисты</h2></div></div>
-        <p class="music-coming-soon">Здесь будут плейлисты, сохранённые из сообщества.</p>
+        <p class="music-coming-soon"><a href="{% url 'music:playlists' %}#saved">Открыть сохранённые плейлисты →</a></p>
     </section>
     {% endif %}
 

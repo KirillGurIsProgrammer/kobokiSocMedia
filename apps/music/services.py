@@ -3,7 +3,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Exists, OuterRef, Q
 
-from .models import Album, Like, Review, Track
+from .models import Album, Like, Playlist, PlaylistTrack, Review, SavedPlaylist, Track
 
 
 def with_like_data(queryset, user):
@@ -47,6 +47,162 @@ def toggle_like(user, track):
         # A concurrent request may have created the unique pair first.
         liked = Like.objects.filter(user=user, track=track).exists()
     return liked, Like.objects.filter(track=track).count()
+
+
+def get_viewable_playlist(user, playlist_id):
+    """Return a public playlist or the user's own playlist, otherwise None."""
+    return (
+        Playlist.objects.filter(pk=playlist_id)
+        .filter(Q(owner=user) | Q(is_public=True))
+        .select_related("owner")
+        .first()
+    )
+
+
+def get_owned_playlist(user, playlist_id):
+    return Playlist.objects.filter(pk=playlist_id, owner=user).first()
+
+
+def list_user_playlists(user):
+    return Playlist.objects.filter(owner=user).annotate(track_count=Count("playlist_tracks"))
+
+
+def list_saved_playlists(user):
+    saved_by_user = SavedPlaylist.objects.filter(
+        user=user, playlist_id=OuterRef("pk")
+    )
+    return (
+        Playlist.objects.filter(saves__user=user, is_public=True)
+        .select_related("owner")
+        .annotate(
+            track_count=Count("playlist_tracks"),
+            saved_by_user=Exists(saved_by_user),
+        )
+    )
+
+
+def list_public_playlists(user):
+    saved_by_user = SavedPlaylist.objects.filter(
+        user=user, playlist_id=OuterRef("pk")
+    )
+
+
+def list_liked_tracks(user):
+    return with_like_data(
+        Track.objects.filter(likes__user=user).select_related("owner", "album"), user
+    ).order_by("-likes__created_at", "-pk")
+    return (
+        Playlist.objects.filter(is_public=True)
+        .exclude(owner=user)
+        .select_related("owner")
+        .annotate(
+            track_count=Count("playlist_tracks"),
+            saved_by_user=Exists(saved_by_user),
+        )
+    )
+
+
+def get_playlist_entries(user, playlist):
+    entries = list(
+        PlaylistTrack.objects.filter(playlist=playlist).select_related("track__owner", "track__album")
+    )
+    tracks = with_like_data(
+        Track.objects.filter(pk__in=[entry.track_id for entry in entries]).select_related("owner", "album"),
+        user,
+    )
+    tracks_by_id = {track.pk: track for track in tracks}
+    for entry in entries:
+        entry.track = tracks_by_id[entry.track_id]
+    return entries
+
+
+def create_playlist(user, *, title, description="", cover=None, is_public=True):
+    playlist = Playlist(
+        owner=user,
+        title=title,
+        description=description,
+        cover=cover,
+        is_public=is_public,
+    )
+    playlist.full_clean()
+    playlist.save()
+    return playlist
+
+
+def update_playlist(user, playlist, *, title, description, is_public, cover=None):
+    ensure_owner(user, playlist)
+    previous_cover = playlist.cover
+    playlist.title = title
+    playlist.description = description
+    playlist.is_public = is_public
+    if cover is not None:
+        playlist.cover = cover
+    playlist.full_clean()
+    playlist.save()
+    if cover is not None and previous_cover and previous_cover.name != playlist.cover.name:
+        previous_cover.delete(save=False)
+    return playlist
+
+
+def delete_playlist(user, playlist):
+    ensure_owner(user, playlist)
+    cover = playlist.cover
+    playlist.delete()
+    if cover:
+        cover.delete(save=False)
+
+
+def add_track_to_playlist(user, playlist, track):
+    ensure_owner(user, playlist)
+    if PlaylistTrack.objects.filter(playlist=playlist, track=track).exists():
+        raise ValidationError("Этот трек уже есть в плейлисте.")
+    position = PlaylistTrack.objects.filter(playlist=playlist).count()
+    return PlaylistTrack.objects.create(playlist=playlist, track=track, position=position)
+
+
+def remove_track_from_playlist(user, playlist, track):
+    ensure_owner(user, playlist)
+    with transaction.atomic():
+        entry = PlaylistTrack.objects.get(playlist=playlist, track=track)
+        entry.delete()
+        for position, remaining in enumerate(
+            PlaylistTrack.objects.filter(playlist=playlist).order_by("position", "pk")
+        ):
+            if remaining.position != position:
+                PlaylistTrack.objects.filter(pk=remaining.pk).update(position=position)
+
+
+def move_playlist_track(user, playlist, track, direction):
+    ensure_owner(user, playlist)
+    if direction not in {"up", "down"}:
+        raise ValidationError("Неизвестное направление перемещения.")
+    with transaction.atomic():
+        entries = list(
+            PlaylistTrack.objects.filter(playlist=playlist).order_by("position", "pk")
+        )
+        index = next((i for i, entry in enumerate(entries) if entry.track_id == track.pk), None)
+        if index is None:
+            raise PlaylistTrack.DoesNotExist
+        target_index = index - 1 if direction == "up" else index + 1
+        if 0 <= target_index < len(entries):
+            entries[index].position, entries[target_index].position = (
+                entries[target_index].position,
+                entries[index].position,
+            )
+            entries[index].save(update_fields=("position",))
+            entries[target_index].save(update_fields=("position",))
+
+
+def toggle_saved_playlist(user, playlist):
+    if not playlist.is_public:
+        raise PermissionDenied("Нельзя сохранить приватный плейлист.")
+    if playlist.owner_id == user.pk:
+        raise ValidationError("Свой плейлист нельзя сохранить в коллекцию.")
+    saved, created = SavedPlaylist.objects.get_or_create(user=user, playlist=playlist)
+    if not created:
+        saved.delete()
+        return False
+    return True
 
 
 def get_neighbors(track):

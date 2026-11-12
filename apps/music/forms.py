@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Album, Track
+from .models import Album, Playlist, Track
 
 
 class TrackForm(forms.ModelForm):
@@ -27,6 +27,31 @@ class AlbumForm(forms.ModelForm):
         model = Album
         fields = ["title", "cover"]
         labels = {"title": "Название альбома", "cover": "Обложка"}
+
+
+class PlaylistForm(forms.ModelForm):
+    class Meta:
+        model = Playlist
+        fields = ["title", "description", "cover", "is_public"]
+        labels = {
+            "title": "Название плейлиста",
+            "description": "Описание",
+            "cover": "Обложка",
+            "is_public": "Публичный плейлист",
+        }
+        widgets = {"description": forms.Textarea(attrs={"rows": 4})}
+
+
+class PlaylistTrackForm(forms.Form):
+    track = forms.ModelChoiceField(
+        queryset=Track.objects.none(),
+        label="Трек",
+        empty_label="Выберите трек",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["track"].queryset = Track.objects.select_related("owner", "album")
 
 
 class ReviewForm(forms.Form):

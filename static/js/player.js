@@ -136,6 +136,21 @@
     });
 
     document.addEventListener("click", (event) => {
+        const playlistButton = event.target.closest("[data-play-playlist]");
+        if (playlistButton) {
+            const playlistId = playlistButton.dataset.playlistId;
+            const list = document.querySelector(`[data-playlist-track-list="${CSS.escape(playlistId)}"]`);
+            if (!list) return;
+            queue = Array.from(list.querySelectorAll("[data-track-play]"), (button) => {
+                const track = trackFromButton(button);
+                track.playlistId = playlistId;
+                if (playlistButton.dataset.playlistCover) track.cover = playlistButton.dataset.playlistCover;
+                return track;
+            });
+            queueIndex = 0;
+            playIndex(queueIndex);
+            return;
+        }
         const playButton = event.target.closest("[data-track-play]");
         if (playButton) {
             event.preventDefault();

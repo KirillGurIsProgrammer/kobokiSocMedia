@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Понравившиеся · Музыка{% endblock %}
+{% block content %}
+<div class="music-library">
+    <header class="music-heading"><div><span class="eyebrow">ТВОЯ КОЛЛЕКЦИЯ</span><h1>Понравившиеся</h1><p>Треки, отмеченные сердцем.</p></div></header>
+    <div class="music-track-list" data-track-list>
+        {% for track in tracks %}{% include "music/_track_row.html" %}
+        {% empty %}<div class="music-empty"><span>♡</span><strong>Здесь пока пусто</strong><p>Нажми на сердце у трека, чтобы сохранить его здесь.</p></div>{% endfor %}
+    </div>
+</div>
+{% endblock %}

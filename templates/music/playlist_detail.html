@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ playlist.title }} · Плейлист{% endblock %}
+{% block content %}
+<div class="music-library">
+    <header class="playlist-hero">
+        {% if playlist.cover %}<img class="playlist-hero-cover" src="{{ playlist.cover.url }}" alt="Обложка плейлиста {{ playlist.title }}">
+        {% else %}<div class="playlist-hero-cover playlist-card-cover" aria-hidden="true">♫</div>{% endif %}
+        <div class="playlist-hero-copy">
+            <span class="eyebrow">{% if playlist.is_public %}ПУБЛИЧНЫЙ ПЛЕЙЛИСТ{% else %}ПРИВАТНЫЙ ПЛЕЙЛИСТ{% endif %}</span>
+            <h1>{{ playlist.title }}</h1>
+            <p class="playlist-owner">{{ playlist.owner.username }} · {{ entries|length }} трек(ов)</p>
+            {% if playlist.description %}<p>{{ playlist.description }}</p>{% endif %}
+            <div class="playlist-actions">
+                {% if entries %}<button class="button button--small" type="button" data-play-playlist data-playlist-id="{{ playlist.pk }}" data-playlist-cover="{% if playlist.cover %}{{ playlist.cover.url }}{% endif %}">Слушать плейлист <span>▶</span></button>{% endif %}
+                {% if is_owner %}
+                    <a class="button button--outline button--small" href="{% url 'music:playlist_edit' playlist.pk %}">Изменить</a>
+                    <form method="post" action="{% url 'music:playlist_delete' playlist.pk %}" onsubmit="return confirm('Удалить плейлист?')">
+                        {% csrf_token %}<button class="button button--outline button--small" type="submit">Удалить</button>
+                    </form>
+                {% elif playlist.is_public %}
+                    <form method="post" action="{% url 'music:playlist_toggle_saved' playlist.pk %}">
+                        {% csrf_token %}<button class="button button--outline button--small" type="submit">{% if is_saved %}Убрать из сохранённых{% else %}Сохранить{% endif %}</button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    {% if is_owner %}
+    <form class="playlist-add-track" method="post" action="{% url 'music:playlist_add_track' playlist.pk %}">
+        {% csrf_token %}{{ add_track_form.track }}
+        <button class="button button--small" type="submit">Добавить трек</button>
+    </form>
+    {% endif %}
+
+    <div class="music-track-list" data-track-list data-playlist-track-list="{{ playlist.pk }}">
+        {% for entry in entries %}
+            <div class="playlist-track-item">
+                {% with track=entry.track playlist=playlist %}{% include "music/_track_row.html" %}{% endwith %}
+                {% if is_owner %}
+                <div class="playlist-track-actions">
+                    <form method="post" action="{% url 'music:playlist_move_track' playlist.pk entry.track.pk 'up' %}">{% csrf_token %}<button type="submit" aria-label="Переместить вверх" title="Переместить вверх">↑</button></form>
+                    <form method="post" action="{% url 'music:playlist_move_track' playlist.pk entry.track.pk 'down' %}">{% csrf_token %}<button type="submit" aria-label="Переместить вниз" title="Переместить вниз">↓</button></form>
+                    <form method="post" action="{% url 'music:playlist_remove_track' playlist.pk entry.track.pk %}" onsubmit="return confirm('Убрать трек из плейлиста?')">{% csrf_token %}<button type="submit" aria-label="Убрать из плейлиста" title="Убрать из плейлиста">×</button></form>
+                </div>
+                {% endif %}
+            </div>
+        {% empty %}
+            <div class="music-empty"><span>♫</span><strong>В плейлисте пока нет треков</strong><p>{% if is_owner %}Добавь трек из своей библиотеки или сообщества.{% else %}Владелец ещё не добавил треки.{% endif %}</p></div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+<article class="playlist-card">
+    <a class="playlist-card-main" href="{{ playlist.get_absolute_url }}">
+        {% if playlist.cover %}<img src="{{ playlist.cover.url }}" alt="Обложка плейлиста {{ playlist.title }}">
+        {% else %}<span class="playlist-card-cover" aria-hidden="true">♫</span>{% endif %}
+        <span class="playlist-card-copy"><strong>{{ playlist.title }}</strong><small>{{ playlist.owner.username }} · {{ playlist.track_count }} трек(ов)</small></span>
+    </a>
+    {% if playlist.owner_id != request.user.pk %}
+    <form method="post" action="{% url 'music:playlist_toggle_saved' playlist.pk %}">
+        {% csrf_token %}
+        <button class="button button--small{% if playlist.saved_by_user %} button--outline{% endif %}" type="submit">{% if playlist.saved_by_user %}Убрать{% else %}Сохранить{% endif %}</button>
+    </form>
+    {% endif %}
+</article>

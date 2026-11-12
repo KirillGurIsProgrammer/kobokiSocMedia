@@ -3,7 +3,7 @@ import tempfile
 import json
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase, TestCase, override_settings
@@ -11,7 +11,7 @@ from django.urls import reverse
 
 from apps.core.validators import validate_audio
 from apps.music import services
-from apps.music.models import Like, Track
+from apps.music.models import Like, Playlist, Track
 
 TEMP_MEDIA = tempfile.mkdtemp()
 
@@ -100,6 +100,53 @@ class MusicTests(TestCase):
         Like.objects.create(user=self.bob, track=self.track)
         with self.assertRaises(IntegrityError), transaction.atomic():
             Like.objects.create(user=self.bob, track=self.track)
+
+    def _playlist(self, owner, *, public=True):
+        return Playlist.objects.create(
+            owner=owner,
+            title="Подборка",
+            description="",
+            is_public=public,
+        )
+
+    def test_private_playlist_is_hidden_from_other_users(self):
+        playlist = self._playlist(self.alice, public=False)
+        self.client.login(username="bob", password="pass12345")
+
+        response = self.client.get(reverse("music:playlist_detail", args=[playlist.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_public_playlist_can_be_saved_and_unsaved(self):
+        playlist = self._playlist(self.alice)
+
+        self.assertTrue(services.toggle_saved_playlist(self.bob, playlist))
+        self.assertFalse(services.toggle_saved_playlist(self.bob, playlist))
+        self.assertFalse(playlist.saves.filter(user=self.bob).exists())
+
+    def test_private_playlist_cannot_be_saved(self):
+        playlist = self._playlist(self.alice, public=False)
+        with self.assertRaises(PermissionDenied):
+            services.toggle_saved_playlist(self.bob, playlist)
+
+    def test_only_owner_can_change_playlist_tracks(self):
+        playlist = self._playlist(self.alice)
+        with self.assertRaises(PermissionDenied):
+            services.add_track_to_playlist(self.bob, playlist, self.track)
+
+    def test_playlist_track_order_and_removal(self):
+        playlist = self._playlist(self.alice)
+        second = self._track(self.alice, "Second")
+        services.add_track_to_playlist(self.alice, playlist, self.track)
+        services.add_track_to_playlist(self.alice, playlist, second)
+        services.move_playlist_track(self.alice, playlist, second, "up")
+
+        entries = list(playlist.playlist_tracks.order_by("position"))
+        self.assertEqual([entry.track_id for entry in entries], [second.pk, self.track.pk])
+
+        services.remove_track_from_playlist(self.alice, playlist, second)
+        remaining = playlist.playlist_tracks.get()
+        self.assertEqual((remaining.track_id, remaining.position), (self.track.pk, 0))
 
     def test_foreign_track_cannot_be_deleted(self):
         self.client.login(username="bob", password="pass12345")
