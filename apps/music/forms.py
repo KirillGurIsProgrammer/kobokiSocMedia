@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Album, Playlist, Track
+from .models import Album, MusicSettings, Playlist, Track
 
 
 class TrackForm(forms.ModelForm):
@@ -52,6 +52,17 @@ class PlaylistTrackForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["track"].queryset = Track.objects.select_related("owner", "album")
+
+
+class MusicSettingsForm(forms.Form):
+    show_now_playing = forms.BooleanField(
+        label="Показывать, что я слушаю",
+        required=False,
+    )
+    allow_join = forms.ChoiceField(
+        label="Кто может присоединиться ко мне",
+        choices=MusicSettings.JOIN_CHOICES,
+    )
 
 
 class ReviewForm(forms.Form):

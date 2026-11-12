@@ -151,6 +151,53 @@ class SavedPlaylist(models.Model):
         ]
 
 
+class NowPlaying(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="music_now_playing",
+    )
+    track = models.ForeignKey(
+        Track,
+        on_delete=models.CASCADE,
+        related_name="now_playing_sessions",
+    )
+    playlist = models.ForeignKey(
+        Playlist,
+        on_delete=models.SET_NULL,
+        related_name="now_playing_sessions",
+        blank=True,
+        null=True,
+    )
+    position_seconds = models.FloatField(default=0, validators=[MinValueValidator(0)])
+    duration_seconds = models.FloatField(default=0, validators=[MinValueValidator(0)])
+    is_playing = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class MusicSettings(models.Model):
+    JOIN_EVERYONE = "everyone"
+    JOIN_FOLLOWERS = "followers"
+    JOIN_NOBODY = "nobody"
+    JOIN_CHOICES = [
+        (JOIN_EVERYONE, "Все пользователи"),
+        (JOIN_FOLLOWERS, "Подписчики"),
+        (JOIN_NOBODY, "Никто"),
+    ]
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="music_settings",
+    )
+    show_now_playing = models.BooleanField(default=True)
+    allow_join = models.CharField(
+        max_length=12,
+        choices=JOIN_CHOICES,
+        default=JOIN_EVERYONE,
+    )
+
+
 class Review(models.Model):
     """A review for exactly one track or album."""
 

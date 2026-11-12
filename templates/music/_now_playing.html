@@ -1,0 +1,26 @@
+<section class="now-playing-card" data-now-playing-card data-endpoint="{{ endpoint }}" aria-live="polite">
+    <div class="music-section-heading">
+        <div><span class="eyebrow">МУЗЫКА</span><h2>Сейчас слушает</h2></div>
+        <span class="now-playing-indicator" data-now-indicator aria-hidden="true"></span>
+    </div>
+    {% if not snapshot.visible %}
+        <p class="now-playing-status" data-now-status>Пользователь скрыл эту информацию.</p>
+    {% elif snapshot.track %}
+        <div data-now-details>
+            <strong class="now-playing-title" data-now-title>{{ snapshot.track.title }}</strong>
+            <span class="now-playing-artist" data-now-artist>{{ snapshot.track.artist }}</span>
+            <span class="now-playing-source" data-now-source>
+                {% if source.url %}<a href="{{ source.url }}">{{ source.label }}</a>{% else %}{{ source.label }}{% endif %}
+            </span>
+            <div class="now-playing-progress">
+                <span data-now-current>{{ snapshot.position_label }}</span>
+                <span class="now-playing-progress-track"><i data-now-progress style="width: {{ snapshot.progress_percent }}%"></i></span>
+                <span data-now-duration>{{ snapshot.duration_label }}</span>
+            </div>
+        </div>
+        <p class="now-playing-status" data-now-status>{% if snapshot.is_playing %}Слушает сейчас{% else %}Пауза{% endif %}</p>
+    {% else %}
+        <p class="now-playing-status" data-now-status>{% if snapshot.last_seen_minutes %}Был(а) в сети {{ snapshot.last_seen_minutes }} мин. назад{% else %}Сейчас не слушает{% endif %}</p>
+        <div data-now-details hidden></div>
+    {% endif %}
+</section>

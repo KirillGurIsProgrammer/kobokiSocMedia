@@ -2,8 +2,20 @@
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Exists, OuterRef, Q
+from django.utils import timezone
+from datetime import timedelta
 
-from .models import Album, Like, Playlist, PlaylistTrack, Review, SavedPlaylist, Track
+from .models import (
+    Album,
+    Like,
+    MusicSettings,
+    NowPlaying,
+    Playlist,
+    PlaylistTrack,
+    Review,
+    SavedPlaylist,
+    Track,
+)
 
 
 def with_like_data(queryset, user):
@@ -24,13 +36,56 @@ def search_tracks(owner, query="", *, user=None):
 
 
 def get_discover_tracks(user, query=""):
-    """Return other users' tracks for the public discovery section."""
-    qs = with_like_data(
-        Track.objects.exclude(owner=user).select_related("owner", "album"), user
-    )
+    tracks = get_recommendations(user, limit=100)
     if query:
-        qs = qs.filter(Q(title__icontains=query) | Q(artist__icontains=query))
-    return qs.order_by("-uploaded_at", "-pk")
+        query = query.casefold()
+        tracks = [track for track in tracks if query in track.title.casefold() or query in track.artist.casefold()]
+    return tracks
+
+
+def get_recommendations(user, limit=20):
+    """Rank unseen tracks by liked artists, recent popularity, then recency."""
+    if limit <= 0:
+        return []
+    now = timezone.now()
+    liked_track_ids = Like.objects.filter(user=user).values_list("track_id", flat=True)
+    base = (
+        Track.objects.exclude(owner=user)
+        .exclude(pk__in=liked_track_ids)
+        .select_related("owner", "album")
+        .annotate(
+            recent_like_count=Count(
+                "likes",
+                filter=Q(likes__created_at__gte=now - timedelta(days=30)),
+                distinct=True,
+            )
+        )
+    )
+    liked_artists = Like.objects.filter(user=user).values_list("track__artist", flat=True).distinct()
+    selected = []
+    selected_ids = set()
+
+    artist_tracks = base.filter(artist__in=liked_artists).order_by(
+        "-recent_like_count", "-uploaded_at", "-pk"
+    )[:limit]
+    for track in artist_tracks:
+        selected.append(track)
+        selected_ids.add(track.pk)
+
+    remaining = limit - len(selected)
+    if remaining:
+        popular_tracks = base.filter(recent_like_count__gt=0).exclude(pk__in=selected_ids).order_by(
+            "-recent_like_count", "-uploaded_at", "-pk"
+        )[:remaining]
+        for track in popular_tracks:
+            selected.append(track)
+            selected_ids.add(track.pk)
+
+    remaining = limit - len(selected)
+    if remaining:
+        recent_tracks = base.exclude(pk__in=selected_ids).order_by("-uploaded_at", "-pk")[:remaining]
+        selected.extend(recent_tracks)
+    return selected
 
 
 def toggle_like(user, track):
@@ -203,6 +258,104 @@ def toggle_saved_playlist(user, playlist):
         saved.delete()
         return False
     return True
+
+
+def save_now_playing(user, *, track_id, playlist_id=None, position_seconds=0,
+                     duration_seconds=0, is_playing=False):
+    try:
+        track = Track.objects.get(pk=track_id)
+    except (Track.DoesNotExist, TypeError, ValueError):
+        raise ValidationError("Трек не найден.")
+    try:
+        position_seconds = max(0, float(position_seconds))
+        duration_seconds = max(0, float(duration_seconds))
+    except (TypeError, ValueError):
+        raise ValidationError("Позиция или длительность трека указана неверно.")
+    if duration_seconds:
+        position_seconds = min(position_seconds, duration_seconds)
+    if not isinstance(is_playing, bool):
+        raise ValidationError("Состояние воспроизведения указано неверно.")
+
+    playlist = None
+    if playlist_id not in (None, ""):
+        playlist = get_viewable_playlist(user, playlist_id)
+        if playlist is None or not PlaylistTrack.objects.filter(playlist=playlist, track=track).exists():
+            raise ValidationError("Плейлист недоступен для этого трека.")
+
+    return NowPlaying.objects.update_or_create(
+        user=user,
+        defaults={
+            "track": track,
+            "playlist": playlist,
+            "position_seconds": position_seconds,
+            "duration_seconds": duration_seconds,
+            "is_playing": is_playing,
+        },
+    )[0]
+
+
+def now_playing_snapshot(subject, viewer):
+    settings = MusicSettings.objects.filter(user=subject).first()
+    if settings is not None and not settings.show_now_playing and subject.pk != viewer.pk:
+        return {"visible": False}
+
+    state = NowPlaying.objects.filter(user=subject).select_related(
+        "track__owner", "track__album", "playlist"
+    ).first()
+    if state is None:
+        return {"visible": True, "is_listening": False, "last_seen_minutes": None}
+
+    now = timezone.now()
+    age_seconds = max(0, (now - state.updated_at).total_seconds())
+    fresh = age_seconds <= 15
+    if not fresh:
+        return {
+            "visible": True,
+            "is_listening": False,
+            "last_seen_minutes": max(1, int((age_seconds + 59) // 60)),
+        }
+
+    position = state.position_seconds
+    if state.is_playing:
+        position += age_seconds
+    if state.duration_seconds:
+        position = min(position, state.duration_seconds)
+    visible_playlist = state.playlist
+    if (
+        visible_playlist is not None
+        and not visible_playlist.is_public
+        and (viewer is None or visible_playlist.owner_id != viewer.pk)
+    ):
+        visible_playlist = None
+    return {
+        "visible": True,
+        "is_listening": state.is_playing,
+        "is_playing": state.is_playing,
+        "track": state.track,
+        "playlist": visible_playlist,
+        "position_seconds": position,
+        "duration_seconds": state.duration_seconds,
+        "updated_at": state.updated_at,
+        "last_seen_minutes": None,
+    }
+
+
+def update_music_settings(user, *, show_now_playing, allow_join):
+    valid_values = {choice for choice, _label in MusicSettings.JOIN_CHOICES}
+    if allow_join not in valid_values:
+        raise ValidationError("Неизвестный режим совместного прослушивания.")
+    settings, _created = MusicSettings.objects.update_or_create(
+        user=user,
+        defaults={"show_now_playing": show_now_playing, "allow_join": allow_join},
+    )
+    return settings
+
+
+def get_music_settings(user):
+    settings = MusicSettings.objects.filter(user=user).first()
+    if settings is not None:
+        return settings
+    return MusicSettings(user=user)
 
 
 def get_neighbors(track):

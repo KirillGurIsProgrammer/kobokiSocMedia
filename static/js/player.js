@@ -16,6 +16,7 @@
     const playerLikeForm = player.querySelector("[data-player-like-form]");
     const playerLikeUrl = playerLikeForm.action;
     const playerLikeButton = player.querySelector("[data-player-like]");
+    const nowPlayingUrl = player.dataset.nowPlayingUrl;
     const storageKey = "koboki.music-player.v1";
     let queue = [];
     let queueIndex = -1;
@@ -40,6 +41,36 @@
                 wasPlaying: !audio.paused,
             }));
         } catch (_) { /* Storage can be unavailable in private browsing. */ }
+    }
+
+    function sendNowPlaying(isPlaying = !audio.paused, beacon = false) {
+        if (!activeTrack?.id || !nowPlayingUrl) return;
+        const csrf = playerLikeForm.querySelector("[name=csrfmiddlewaretoken]")?.value;
+        if (!csrf) return;
+        const payload = {
+            track_id: activeTrack.id,
+            playlist_id: activeTrack.playlistId || null,
+            position_seconds: audio.currentTime || 0,
+            duration_seconds: Number.isFinite(audio.duration) ? audio.duration : 0,
+            is_playing: Boolean(isPlaying),
+        };
+        if (beacon && navigator.sendBeacon) {
+            const formData = new FormData();
+            Object.entries(payload).forEach(([key, value]) => formData.append(key, value ?? ""));
+            formData.append("csrfmiddlewaretoken", csrf);
+            navigator.sendBeacon(nowPlayingUrl, formData);
+            return;
+        }
+        fetch(nowPlayingUrl, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrf,
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            body: JSON.stringify(payload),
+        }).catch(() => {});
     }
 
     function renderQueue() {
@@ -88,6 +119,7 @@
         renderQueue();
         if (shouldPlay) audio.play().catch(() => {});
         saveState();
+        sendNowPlaying(!audio.paused);
     }
 
     function playIndex(index) {
@@ -237,8 +269,9 @@
     }
 
     window.addEventListener("popstate", () => navigate(location.href, false));
-    audio.addEventListener("play", () => { toggle.textContent = "Ⅱ"; toggle.setAttribute("aria-label", "Пауза"); saveState(); });
-    audio.addEventListener("pause", () => { toggle.textContent = "▶"; toggle.setAttribute("aria-label", "Воспроизвести"); saveState(); });
+    audio.addEventListener("play", () => { toggle.textContent = "Ⅱ"; toggle.setAttribute("aria-label", "Пауза"); saveState(); sendNowPlaying(true); });
+    audio.addEventListener("pause", () => { toggle.textContent = "▶"; toggle.setAttribute("aria-label", "Воспроизвести"); saveState(); sendNowPlaying(false); });
+    audio.addEventListener("seeked", () => sendNowPlaying(!audio.paused));
     audio.addEventListener("timeupdate", () => {
         currentTime.textContent = formatTime(audio.currentTime);
         duration.textContent = formatTime(audio.duration);
@@ -270,6 +303,84 @@
         if (!activeTrack) return;
         if (audio.paused) audio.play().catch(() => {});
         else audio.pause();
+    });
+    window.addEventListener("beforeunload", () => sendNowPlaying(false, true));
+    window.setInterval(() => {
+        if (activeTrack) sendNowPlaying(!audio.paused);
+    }, 5000);
+
+    function updateNowPlayingCard(card, data) {
+        const status = card.querySelector("[data-now-status]");
+        const details = card.querySelector("[data-now-details]");
+        const indicator = card.querySelector("[data-now-indicator]");
+        if (!data.visible) {
+            status.textContent = "Пользователь скрыл эту информацию.";
+            details.hidden = true;
+            indicator.classList.remove("is-playing");
+            return;
+        }
+        if (!data.track) {
+            details.hidden = true;
+            status.textContent = data.last_seen_minutes
+                ? `Был(а) в сети ${data.last_seen_minutes} мин. назад`
+                : "Сейчас не слушает";
+            indicator.classList.remove("is-playing");
+            return;
+        }
+        details.hidden = false;
+        card.querySelector("[data-now-title]").textContent = data.track.title;
+        card.querySelector("[data-now-artist]").textContent = data.track.artist;
+        const source = card.querySelector("[data-now-source]");
+        source.replaceChildren();
+        if (data.source?.url) {
+            const link = document.createElement("a");
+            link.href = data.source.url;
+            link.textContent = data.source.label;
+            source.append(link);
+        } else {
+            source.textContent = data.source?.label || "из библиотеки";
+        }
+        card.dataset.position = String(data.position_seconds || 0);
+        card.dataset.duration = String(data.duration_seconds || 0);
+        card.dataset.playing = String(Boolean(data.is_playing));
+        card.dataset.syncedAt = String(Date.now());
+        status.textContent = data.is_playing ? "Слушает сейчас" : "Пауза";
+        indicator.classList.toggle("is-playing", Boolean(data.is_playing));
+        renderNowPlayingProgress(card);
+    }
+
+    function renderNowPlayingProgress(card) {
+        if (card.querySelector("[data-now-details]")?.hidden) return;
+        const durationValue = Number(card.dataset.duration || 0);
+        const elapsed = card.dataset.playing === "true"
+            ? (Date.now() - Number(card.dataset.syncedAt || Date.now())) / 1000
+            : 0;
+        const position = Math.min(durationValue || Infinity, Number(card.dataset.position || 0) + elapsed);
+        card.querySelector("[data-now-current]").textContent = formatTime(position);
+        card.querySelector("[data-now-duration]").textContent = formatTime(durationValue);
+        const percent = durationValue ? Math.min(100, position / durationValue * 100) : 0;
+        card.querySelector("[data-now-progress]").style.width = `${percent}%`;
+    }
+
+    async function pollNowPlayingCards() {
+        if (document.hidden) return;
+        for (const card of document.querySelectorAll("[data-now-playing-card]")) {
+            try {
+                const response = await fetch(card.dataset.endpoint, {
+                    credentials: "same-origin",
+                    headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                });
+                if (response.ok) updateNowPlayingCard(card, await response.json());
+            } catch (_) { /* Keep the last rendered snapshot while offline. */ }
+        }
+    }
+
+    window.setInterval(() => {
+        document.querySelectorAll("[data-now-playing-card]").forEach(renderNowPlayingProgress);
+    }, 1000);
+    window.setInterval(pollNowPlayingCards, 5000);
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) pollNowPlayingCards();
     });
 
     try {

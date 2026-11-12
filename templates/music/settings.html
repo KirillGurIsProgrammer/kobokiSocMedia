@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Настройки музыки{% endblock %}
+{% block content %}
+<div class="music-form-page">
+    <span class="eyebrow">ПРИВАТНОСТЬ</span>
+    <h1>Настройки музыки</h1>
+    <form class="form-card" method="post">
+        {% csrf_token %}{{ form.as_p }}
+        <button class="button" type="submit">Сохранить настройки</button>
+    </form>
+</div>
+{% endblock %}

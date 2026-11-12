@@ -2,12 +2,14 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+import json
+
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from . import services
-from .forms import AlbumForm, PlaylistForm, PlaylistTrackForm, ReviewForm, TrackForm
+from .forms import AlbumForm, MusicSettingsForm, PlaylistForm, PlaylistTrackForm, ReviewForm, TrackForm
 from .models import Album, PlaylistTrack, SavedPlaylist, Track
 
 User = get_user_model()
@@ -344,6 +346,79 @@ def playlist_toggle_saved(request, playlist_id):
     else:
         messages.success(request, "Плейлист сохранён." if is_saved else "Плейлист удалён из сохранённых.")
     return redirect(playlist)
+
+
+@login_required
+def music_settings(request):
+    settings = services.get_music_settings(request.user)
+    if request.method == "POST":
+        form = MusicSettingsForm(request.POST)
+        if form.is_valid():
+            services.update_music_settings(
+                request.user,
+                show_now_playing=form.cleaned_data["show_now_playing"],
+                allow_join=form.cleaned_data["allow_join"],
+            )
+            messages.success(request, "Настройки музыки сохранены.")
+            return redirect("music:settings")
+    else:
+        form = MusicSettingsForm(initial={
+            "show_now_playing": settings.show_now_playing,
+            "allow_join": settings.allow_join,
+        })
+    return render(request, "music/settings.html", {"form": form})
+
+
+@login_required
+@require_POST
+def now_playing_update(request):
+    try:
+        if request.content_type == "application/json":
+            payload = json.loads(request.body or b"{}")
+        else:
+            payload = request.POST
+        state = services.save_now_playing(
+            request.user,
+            track_id=payload.get("track_id"),
+            playlist_id=payload.get("playlist_id"),
+            position_seconds=payload.get("position_seconds", 0),
+            duration_seconds=payload.get("duration_seconds", 0),
+            is_playing=(payload.get("is_playing") is True or payload.get("is_playing") == "true"),
+        )
+    except (json.JSONDecodeError, TypeError, AttributeError, ValidationError) as error:
+        return JsonResponse({"error": str(error)}, status=400)
+    return JsonResponse({"ok": True, "updated_at": state.updated_at.isoformat()})
+
+
+@login_required
+def now_playing_detail(request, username):
+    subject = get_object_or_404(User, username=username)
+    snapshot = services.now_playing_snapshot(subject, request.user)
+    if not snapshot.get("visible"):
+        return JsonResponse({"visible": False})
+    track = snapshot.get("track")
+    playlist = snapshot.get("playlist")
+    data = {
+        "visible": True,
+        "is_listening": snapshot["is_listening"],
+        "last_seen_minutes": snapshot["last_seen_minutes"],
+    }
+    if track is not None:
+        data.update({
+            "is_playing": snapshot["is_playing"],
+            "track": {"title": track.title, "artist": track.artist},
+            "position_seconds": snapshot["position_seconds"],
+            "duration_seconds": snapshot["duration_seconds"],
+            "updated_at": snapshot["updated_at"].isoformat(),
+            "source": (
+                {"label": playlist.title, "url": playlist.get_absolute_url()}
+                if playlist else
+                {"label": f"из альбома «{track.album.title}»", "url": track.album.get_absolute_url()}
+                if track.album_id else
+                {"label": "из библиотеки", "url": None}
+            ),
+        })
+    return JsonResponse(data)
 
 
 @login_required

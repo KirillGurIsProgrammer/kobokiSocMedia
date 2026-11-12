@@ -1,4 +1,4 @@
-<section class="music-player" data-music-player aria-label="Музыкальный плеер">
+<section class="music-player" data-music-player data-now-playing-url="{% url 'music:now_playing_update' %}" aria-label="Музыкальный плеер">
     <audio id="music-audio" preload="metadata"></audio>
     <div class="music-player-track">
         <div class="music-player-cover" data-player-cover aria-hidden="true"><span>♫</span></div>

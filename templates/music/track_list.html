@@ -10,6 +10,7 @@
             <p>Треки, альбомы и новые находки сообщества.</p>
         </div>
         {% if is_mine %}<div class="music-actions">
+            <a class="button button--outline button--small" href="{% url 'music:settings' %}">Настройки</a>
             <a class="button button--outline button--small" href="{% url 'music:album_create' %}">Создать альбом</a>
             <a class="button button--small" href="{% url 'music:track_upload' %}">Загрузить трек <span>＋</span></a>
         </div>{% endif %}
