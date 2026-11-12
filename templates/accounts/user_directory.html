@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Найти людей — Koboki{% endblock %}
+
+{% block content %}
+<section class="people-page">
+    <header class="people-heading">
+        <span class="eyebrow"><span class="eyebrow-dot"></span> СООБЩЕСТВО KOBOKI</span>
+        <h1>Найти людей</h1>
+        <p>Ищи пользователей по имени или интересам и подписывайся на тех, чьи музыкальные вкусы тебе близки.</p>
+    </header>
+
+    <form class="people-search" method="get" role="search">
+        <label class="sr-only" for="people-query">Имя пользователя или интересы</label>
+        <span aria-hidden="true">⌕</span>
+        <input id="people-query" type="search" name="q" value="{{ query }}" placeholder="Имя пользователя или интересы">
+        {% if query %}
+            <a class="people-clear" href="{% url 'accounts:user_directory' %}">Сбросить</a>
+        {% endif %}
+        <button class="button" type="submit">Найти</button>
+    </form>
+
+    <div class="people-results-heading">
+        <h2>{% if query %}Результаты поиска{% else %}Пользователи{% endif %}</h2>
+        <span>{{ page_obj.paginator.count }}</span>
+    </div>
+
+    <div class="people-list">
+        {% for person in page_obj %}
+            <article class="people-card">
+                <a class="people-person" href="{% url 'accounts:profile' person.username %}">
+                    <span class="people-avatar">
+                        {% if person.avatar %}
+                            <img src="{{ person.avatar.url }}" alt="">
+                        {% else %}
+                            {{ person.username|first|upper }}
+                        {% endif %}
+                    </span>
+                    <span class="people-person-copy">
+                        <strong>{{ person.username }}</strong>
+                        <span>{% if person.bio %}{{ person.bio|truncatechars:120 }}{% else %}Пока не добавил описание профиля.{% endif %}</span>
+                    </span>
+                </a>
+                {% if person.is_following %}
+                    <form method="post" action="{% url 'accounts:unfollow' person.username %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button class="button button--outline people-follow-button" type="submit">Вы подписаны</button>
+                    </form>
+                {% else %}
+                    <form method="post" action="{% url 'accounts:follow' person.username %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button class="button people-follow-button" type="submit">Подписаться</button>
+                    </form>
+                {% endif %}
+            </article>
+        {% empty %}
+            <div class="empty-state people-empty">
+                <span class="empty-state-icon" aria-hidden="true">⌕</span>
+                <h2>{% if query %}Ничего не найдено{% else %}Пока нет других пользователей{% endif %}</h2>
+                <p>{% if query %}Попробуй изменить запрос или проверь имя пользователя.{% else %}Когда появятся новые участники, их профили будут здесь.{% endif %}</p>
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="pagination" aria-label="Страницы пользователей">
+            {% if page_obj.has_previous %}
+                <a class="pagination-link" href="?q={{ query|urlencode }}&page={{ page_obj.previous_page_number }}">← Назад</a>
+            {% else %}
+                <span class="pagination-link is-disabled">← Назад</span>
+            {% endif %}
+            <span class="pagination-status">Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+                <a class="pagination-link" href="?q={{ query|urlencode }}&page={{ page_obj.next_page_number }}">Дальше →</a>
+            {% else %}
+                <span class="pagination-link is-disabled">Дальше →</span>
+            {% endif %}
+        </nav>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}{% if post %}Редактировать публикацию{% else %}Новая публикация{% endif %} — Koboki{% endblock %}
+
+{% block content %}
+<section class="form-layout">
+    <div class="form-intro">
+        <span class="eyebrow">ПУБЛИКАЦИЯ</span>
+        <h1>{% if post %}Измени<br>{% else %}Поделись<br>{% endif %}<span class="text-accent">постом.</span></h1>
+        <p>Напиши о музыке, плейлисте или о том, что сейчас слушаешь.</p>
+    </div>
+    <div class="form-card">
+        <h2>{% if post %}Редактировать публикацию{% else %}Новая публикация{% endif %}</h2>
+        <p class="form-subtitle">Текст до 2000 символов. Можно прикрепить изображение и ссылку на трек.</p>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button class="button form-submit" type="submit">{% if post %}Сохранить{% else %}Опубликовать{% endif %} <span aria-hidden="true">↗</span></button>
+        </form>
+    </div>
+</section>
+{% endblock %}

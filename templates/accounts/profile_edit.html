@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Редактирование профиля{% endblock %}
+
+{% block content %}
+<section class="form-layout">
+    <div class="form-intro">
+        <span class="eyebrow">НАСТРОЙКИ ПРОФИЛЯ</span>
+        <h1>Обнови<br><span class="text-accent">профиль.</span></h1>
+        <p>Расскажи о своих музыкальных интересах и обнови аватар.</p>
+    </div>
+    <div class="form-card">
+        <h2>Редактировать профиль</h2>
+        <p class="form-subtitle">Изменения увидят другие участники Koboki.</p>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button class="button form-submit" type="submit">Сохранить изменения <span aria-hidden="true">↗</span></button>
+        </form>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Вход{% endblock %}
+
+{% block content %}
+<section class="form-layout">
+    <div class="form-intro">
+        <span class="eyebrow">KOBOKI · МУЗЫКАЛЬНАЯ СОЦСЕТЬ</span>
+        <h1>Вход в<br><span class="text-accent">аккаунт.</span></h1>
+        <p>Войдите, чтобы публиковать плейлисты и оценивать подборки пользователей.</p>
+    </div>
+    <div class="form-card">
+        <h2>Войти в Koboki</h2>
+        <p class="form-subtitle">Введите имя пользователя и пароль.</p>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button class="button form-submit" type="submit">Войти <span aria-hidden="true">↗</span></button>
+        </form>
+        <p class="form-switch">Нет аккаунта? <a href="{% url 'accounts:register' %}">Зарегистрироваться</a></p>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Лента — Koboki{% endblock %}
+
+{% block content %}
+<section class="feed-layout">
+    <div class="feed-hero">
+        <div class="feed-hero-copy">
+            <span class="feed-hero-kicker">KOBOKI / SOCIAL</span>
+            <h1>Музыка. Люди.<br><span>Возможности.</span></h1>
+            <p>Открывай новые звуки через людей и их плейлисты.</p>
+            <a class="feed-hero-button" href="{% url 'feed:post_create' %}">Присоединиться к разговору <span>→</span></a>
+        </div>
+        <div class="feed-hero-art" aria-hidden="true">
+            <span class="hero-orb hero-orb--one"></span>
+            <span class="hero-orb hero-orb--two"></span>
+            <span class="hero-equalizer"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        </div>
+        <div class="feed-hero-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    </div>
+
+    <a class="feed-composer" href="{% url 'feed:post_create' %}">
+        <span class="composer-avatar">
+            {% if user.avatar %}<img src="{{ user.avatar.url }}" alt="">{% else %}{{ user.username|first|upper }}{% endif %}
+        </span>
+        <span class="composer-placeholder">Что нового, {{ user.username }}?</span>
+        <span class="composer-tools" aria-hidden="true">▧　♫</span>
+        <span class="composer-submit">Опубликовать</span>
+    </a>
+
+    <div class="feed-heading">
+        <div>
+            <span class="eyebrow"><span class="eyebrow-dot"></span> ОБНОВЛЕНИЯ</span>
+            <h2>Лента сообщества</h2>
+            <p>Публикации всех пользователей Koboki — новые посты сверху.</p>
+        </div>
+        <div class="feed-actions">
+            <a class="button button--outline" href="{% url 'feed:feed' %}">Обновить <span aria-hidden="true">⟳</span></a>
+            <a class="button" href="{% url 'feed:post_create' %}">Новый пост <span aria-hidden="true">+</span></a>
+        </div>
+    </div>
+
+    {% for post in page_obj %}
+        {% include "feed/_post_card.html" with post=post %}
+    {% empty %}
+        <div class="empty-state">
+            <span class="empty-state-icon" aria-hidden="true">♫</span>
+            <h2>Лента пока пуста</h2>
+            <p>Когда пользователи начнут публиковать посты, они появятся здесь.</p>
+            <a class="button" href="{% url 'feed:post_create' %}">Создать публикацию</a>
+        </div>
+    {% endfor %}
+
+    {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="pagination" aria-label="Страницы ленты">
+            {% if page_obj.has_previous %}
+                <a class="pagination-link" href="?page={{ page_obj.previous_page_number }}">← Назад</a>
+            {% else %}
+                <span class="pagination-link is-disabled">← Назад</span>
+            {% endif %}
+            <span class="pagination-status">Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+                <a class="pagination-link" href="?page={{ page_obj.next_page_number }}">Дальше →</a>
+            {% else %}
+                <span class="pagination-link is-disabled">Дальше →</span>
+            {% endif %}
+        </nav>
+    {% endif %}
+</section>
+{% endblock %}
