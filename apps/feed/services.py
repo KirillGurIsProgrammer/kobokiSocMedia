@@ -1,10 +1,22 @@
-from django.core.exceptions import PermissionDenied
-from django.db.models import QuerySet
+from dataclasses import dataclass
+from datetime import datetime
 
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
+
+from apps.music.models import Track
+from apps.music.services import create_track
 from .models import Post
 
 
 _UNSET = object()
+
+
+@dataclass(frozen=True)
+class FeedEntry:
+    kind: str
+    item: Post | Track
+    created_at: datetime
 
 
 def create_post(
@@ -12,9 +24,10 @@ def create_post(
     *,
     text,
     image=None,
+    track=None,
+    track_file=None,
     track_title="",
     track_artist="",
-    track_url="",
 ):
     if not author.is_authenticated:
         raise PermissionDenied("Authentication is required to create posts.")
@@ -22,12 +35,19 @@ def create_post(
         author=author,
         text=text,
         image=image,
-        track_title=track_title,
-        track_artist=track_artist,
-        track_url=track_url,
+        track=track,
     )
     post.full_clean()
-    post.save()
+    with transaction.atomic():
+        if track_file:
+            post.track = create_track(
+                author,
+                title=track_title,
+                artist=track_artist,
+                album=None,
+                audio_file=track_file,
+            )
+        post.save()
     return post
 
 
@@ -37,23 +57,29 @@ def update_post(
     *,
     text,
     image=_UNSET,
-    track_title=_UNSET,
-    track_artist=_UNSET,
-    track_url=_UNSET,
+    track=_UNSET,
+    track_file=None,
+    track_title="",
+    track_artist="",
 ):
     if not can_manage_post(user, post):
         raise PermissionDenied("Only the post author can edit it.")
     post.text = text
     if image is not _UNSET:
         post.image = image
-    if track_title is not _UNSET:
-        post.track_title = track_title
-    if track_artist is not _UNSET:
-        post.track_artist = track_artist
-    if track_url is not _UNSET:
-        post.track_url = track_url
+    if track is not _UNSET:
+        post.track = track
     post.full_clean()
-    post.save()
+    with transaction.atomic():
+        if track_file:
+            post.track = create_track(
+                user,
+                title=track_title,
+                artist=track_artist,
+                album=None,
+                audio_file=track_file,
+            )
+        post.save()
     return post
 
 
@@ -67,9 +93,15 @@ def delete_post(user, post):
     post.delete()
 
 
-def get_feed_for(_user) -> QuerySet[Post]:
-    return (
-        Post.objects.all()
-        .select_related("author")
-        .order_by("-created_at")
+def get_feed_for(_user):
+    posts = Post.objects.select_related("author", "track").order_by("-created_at")
+    tracks = Track.objects.select_related("owner", "album").order_by("-uploaded_at")
+    entries = [
+        FeedEntry("post", post, post.created_at)
+        for post in posts
+    ]
+    entries.extend(
+        FeedEntry("track", track, track.uploaded_at)
+        for track in tracks
     )
+    return sorted(entries, key=lambda entry: entry.created_at, reverse=True)

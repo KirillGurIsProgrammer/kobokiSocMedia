@@ -22,14 +22,22 @@
     </header>
     <div class="post-content">
         <p>{{ post.text|linebreaksbr }}</p>
-        {% if post.track_title %}
+        {% if post.track %}
             <div class="post-track">
                 <span class="post-track-icon" aria-hidden="true">♫</span>
                 <span class="post-track-info">
-                    <strong>{{ post.track_title }}</strong>
-                    <span>{{ post.track_artist }}</span>
+                    <strong>{{ post.track.title }}</strong>
+                    <span>{{ post.track.artist }}</span>
                 </span>
-                <a class="post-track-link" href="{{ post.track_url }}" target="_blank" rel="noopener noreferrer">
+                <button class="post-track-play" type="button"
+                    data-track-play
+                    data-track-id="{{ post.track.pk }}"
+                    data-track-url="{{ post.track.audio_file.url }}"
+                    data-track-title="{{ post.track.title }}"
+                    data-track-artist="{{ post.track.artist }}"
+                    data-track-cover="{% if post.track.album and post.track.album.cover %}{{ post.track.album.cover.url }}{% endif %}"
+                    aria-label="Воспроизвести: {{ post.track.title }} — {{ post.track.artist }}">▶</button>
+                <a class="post-track-link" href="{{ post.track.get_absolute_url }}">
                     Открыть трек <span aria-hidden="true">↗</span>
                 </a>
             </div>

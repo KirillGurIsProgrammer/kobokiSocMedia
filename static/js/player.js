@@ -416,8 +416,17 @@
             const nextDocument = new DOMParser().parseFromString(html, "text/html");
             const nextMain = nextDocument.querySelector(".site-main");
             const currentMain = document.querySelector(".site-main");
-            if (!nextMain || !currentMain) throw new Error("Music layout not found");
+            const nextSideNav = nextDocument.querySelector(".side-nav");
+            const currentSideNav = document.querySelector(".side-nav");
+            if (!nextMain || !currentMain || !nextSideNav || !currentSideNav) {
+                throw new Error("Page layout not found");
+            }
             currentMain.innerHTML = nextMain.innerHTML;
+            currentSideNav.innerHTML = nextSideNav.innerHTML;
+            document.body.classList.toggle(
+                "music-page",
+                nextDocument.body.classList.contains("music-page"),
+            );
             document.title = nextDocument.title;
             if (push) history.pushState({}, "", url);
             window.scrollTo(0, 0);

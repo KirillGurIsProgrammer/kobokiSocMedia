@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#0d0b10">
     <title>{% block title %}Koboki{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=8">
-    <script src="{% static 'js/player.js' %}?v=1" defer></script>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=9">
+    <script src="{% static 'js/player.js' %}?v=2" defer></script>
 </head>
 <body{% if request.resolver_match.app_name == 'music' %} class="music-page"{% endif %}>
     <div class="app-shell">
@@ -18,10 +18,10 @@
             </a>
 
             <nav class="side-nav" aria-label="Основная навигация">
-                <a class="side-link {% if request.resolver_match.view_name == 'feed:feed' %}is-active{% endif %}" href="{% url 'feed:feed' %}">
+                <a class="side-link {% if request.resolver_match.app_name == 'feed' and request.resolver_match.view_name != 'feed:post_create' and request.resolver_match.view_name != 'feed:post_edit' %}is-active{% endif %}" href="{% url 'feed:feed' %}">
                     <span class="side-icon" aria-hidden="true">⌂</span><span>Лента</span>
                 </a>
-                <a class="side-link" href="{% url 'music:library' %}">
+                <a class="side-link {% if request.resolver_match.app_name == 'music' %}is-active{% endif %}" href="{% url 'music:library' %}">
                     <span class="side-icon" aria-hidden="true">♫</span><span>Музыка</span>
                 </a>
                 {% if user.is_authenticated %}

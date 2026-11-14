@@ -9,7 +9,9 @@ from django.urls import reverse
 from PIL import Image
 
 from apps.accounts.services import follow
+from apps.music.models import Track
 
+from .forms import PostForm
 from .models import Post
 from .services import create_post, delete_post, get_feed_for, update_post
 
@@ -23,9 +25,20 @@ def png_upload(name="post.png"):
     return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/png")
 
 
+def mp3_upload(name="track.mp3"):
+    return SimpleUploadedFile(name, b"ID3-test-audio", content_type="audio/mpeg")
+
+
 class PostModelTests(TestCase):
     def setUp(self):
         self.author = User.objects.create_user(username="post-author")
+
+    def test_post_form_uses_library_track_instead_of_external_music_links(self):
+        form = PostForm()
+
+        self.assertIn("track", form.fields)
+        self.assertIn("track_file", form.fields)
+        self.assertNotIn("track_url", form.fields)
 
     def test_post_rejects_empty_or_whitespace_text(self):
         for text in ("", "   \n\t"):
@@ -35,16 +48,6 @@ class PostModelTests(TestCase):
 
     def test_post_rejects_text_over_2000_characters(self):
         post = Post(author=self.author, text="x" * 2001)
-
-        with self.assertRaises(ValidationError):
-            post.full_clean()
-
-    def test_post_requires_complete_track_details(self):
-        post = Post(
-            author=self.author,
-            text="Listening now",
-            track_title="Dreams",
-        )
 
         with self.assertRaises(ValidationError):
             post.full_clean()
@@ -91,15 +94,18 @@ class FeedServiceTests(TestCase):
         other_post = Post.objects.create(author=self.other, text="Community post")
         follow(self.user, self.followed)
 
-        with self.assertNumQueries(1):
-            feed_posts = list(get_feed_for(self.user))
+        with self.assertNumQueries(2):
+            feed_entries = list(get_feed_for(self.user))
 
         self.assertCountEqual(
-            [post.pk for post in feed_posts],
+            [entry.item.pk for entry in feed_entries],
             [own_post.pk, followed_post.pk, other_post.pk],
         )
         self.assertTrue(
-            all("author" in post._state.fields_cache for post in feed_posts)
+            all(
+                "author" in entry.item._state.fields_cache
+                for entry in feed_entries
+            )
         )
 
     def test_create_post_assigns_author_and_saves(self):
@@ -107,19 +113,6 @@ class FeedServiceTests(TestCase):
 
         self.assertEqual(post.author, self.user)
         self.assertEqual(Post.objects.get(pk=post.pk).text, "Listening now")
-
-    def test_create_post_can_attach_a_track(self):
-        post = create_post(
-            self.user,
-            text="On repeat",
-            track_title="Dreams",
-            track_artist="Fleetwood Mac",
-            track_url="https://open.spotify.com/track/example",
-        )
-
-        self.assertEqual(post.track_title, "Dreams")
-        self.assertEqual(post.track_artist, "Fleetwood Mac")
-        self.assertEqual(post.track_url, "https://open.spotify.com/track/example")
 
     def test_delete_post_rejects_non_author(self):
         post = Post.objects.create(author=self.followed, text="Private to author")
@@ -138,34 +131,49 @@ class FeedServiceTests(TestCase):
         self.assertEqual(Post.objects.get(pk=post.pk).text, "Updated text")
 
     def test_update_post_can_replace_or_remove_track(self):
-        post = Post.objects.create(
-            author=self.user,
-            text="Listening now",
-            track_title="Old song",
-            track_artist="Old artist",
-            track_url="https://example.com/old",
-        )
+        with tempfile.TemporaryDirectory() as media_dir:
+            with override_settings(MEDIA_ROOT=media_dir):
+                track = Track.objects.create(
+                    owner=self.user,
+                    title="Old song",
+                    artist="Old artist",
+                    audio_file=mp3_upload(),
+                )
+                post = Post.objects.create(
+                    author=self.user, text="Listening now", track=track
+                )
+                new_track = Track.objects.create(
+                    owner=self.followed,
+                    title="New song",
+                    artist="New artist",
+                    audio_file=mp3_upload("new-track.mp3"),
+                )
 
-        update_post(
-            self.user,
-            post,
-            text=post.text,
-            track_title="New song",
-            track_artist="New artist",
-            track_url="https://example.com/new",
-        )
-        self.assertEqual(post.track_title, "New song")
+                update_post(
+                    self.user,
+                    post,
+                    text=post.text,
+                    track=new_track,
+                )
+                self.assertEqual(post.track, new_track)
 
-        update_post(
-            self.user,
-            post,
-            text=post.text,
-            track_title="",
-            track_artist="",
-            track_url="",
-        )
-        self.assertEqual(post.track_title, "")
-        self.assertEqual(post.track_url, "")
+                update_post(self.user, post, text=post.text, track=None)
+        self.assertIsNone(post.track)
+
+    def test_uploaded_mp3_is_added_to_library_and_attached_to_post(self):
+        with tempfile.TemporaryDirectory() as media_dir:
+            with override_settings(MEDIA_ROOT=media_dir):
+                post = create_post(
+                    self.user,
+                    text="On repeat",
+                    track_file=mp3_upload(),
+                    track_title="Dreams",
+                    track_artist="Fleetwood Mac",
+                )
+
+        self.assertEqual(post.track.title, "Dreams")
+        self.assertEqual(post.track.artist, "Fleetwood Mac")
+        self.assertEqual(post.track.owner, self.user)
 
     def test_update_post_rejects_non_author(self):
         post = Post.objects.create(author=self.followed, text="Original text")
@@ -201,6 +209,36 @@ class FeedViewTests(TestCase):
 
         self.assertContains(response, "Community post")
 
+    def test_music_upload_is_published_as_a_playable_feed_card(self):
+        with tempfile.TemporaryDirectory() as media_dir:
+            with override_settings(MEDIA_ROOT=media_dir):
+                upload_response = self.client.post(
+                    reverse("music:track_upload"),
+                    {
+                        "title": "New song",
+                        "artist": "New artist",
+                        "audio_file": mp3_upload(),
+                    },
+                )
+                feed_response = self.client.get(reverse("feed:feed"))
+
+        self.assertEqual(upload_response.status_code, 302)
+        self.assertContains(feed_response, "New song")
+        self.assertContains(feed_response, "New artist")
+        self.assertContains(feed_response, "data-track-play")
+        self.assertContains(feed_response, "tracks/track.mp3")
+
+    def test_feed_link_is_highlighted_on_feed_and_music_link_on_music_pages(self):
+        feed_response = self.client.get(reverse("feed:feed"))
+        music_response = self.client.get(reverse("music:library"))
+
+        self.assertContains(
+            feed_response, 'class="side-link is-active" href="/"'
+        )
+        self.assertContains(
+            music_response, 'class="side-link is-active" href="/music/"'
+        )
+
     def test_create_post_view_saves_post_and_redirects(self):
         response = self.client.post(
             reverse("feed:post_create"),
@@ -212,22 +250,63 @@ class FeedViewTests(TestCase):
             Post.objects.filter(author=self.user, text="Great album today").exists()
         )
 
-    def test_create_post_view_saves_attached_track_and_displays_it(self):
+    def test_create_post_view_attaches_a_library_track_and_renders_player(self):
+        with tempfile.TemporaryDirectory() as media_dir:
+            with override_settings(MEDIA_ROOT=media_dir):
+                track = Track.objects.create(
+                    owner=self.followed,
+                    title="Dreams",
+                    artist="Fleetwood Mac",
+                    audio_file=mp3_upload(),
+                )
+                response = self.client.post(
+                    reverse("feed:post_create"),
+                    {"text": "Great album today", "track": track.pk},
+                )
+                feed_response = self.client.get(reverse("feed:feed"))
+
+        self.assertRedirects(response, reverse("feed:feed"))
+        post = Post.objects.get(author=self.user, track=track)
+        self.assertEqual(post.track, track)
+        self.assertContains(feed_response, "Fleetwood Mac")
+        self.assertContains(feed_response, "data-track-play")
+        self.assertContains(feed_response, track.audio_file.url)
+
+    def test_create_post_view_uploads_mp3_into_library(self):
+        with tempfile.TemporaryDirectory() as media_dir:
+            with override_settings(MEDIA_ROOT=media_dir):
+                response = self.client.post(
+                    reverse("feed:post_create"),
+                    {
+                        "text": "Great album today",
+                        "track_file": mp3_upload(),
+                        "track_title": "Dreams",
+                        "track_artist": "Fleetwood Mac",
+                    },
+                )
+
+        self.assertRedirects(response, reverse("feed:feed"))
+        post = Post.objects.get(author=self.user)
+        self.assertEqual(post.track.title, "Dreams")
+        self.assertEqual(post.track.owner, self.user)
+        self.assertTrue(post.track.audio_file.name.startswith("tracks/"))
+
+    def test_create_post_rejects_non_mp3_audio_upload(self):
         response = self.client.post(
             reverse("feed:post_create"),
             {
                 "text": "Great album today",
+                "track_file": SimpleUploadedFile(
+                    "track.wav", b"wav", content_type="audio/wav"
+                ),
                 "track_title": "Dreams",
                 "track_artist": "Fleetwood Mac",
-                "track_url": "https://open.spotify.com/track/example",
             },
         )
 
-        self.assertRedirects(response, reverse("feed:feed"))
-        post = Post.objects.get(author=self.user, track_title="Dreams")
-        feed_response = self.client.get(reverse("feed:feed"))
-        self.assertContains(feed_response, "Fleetwood Mac")
-        self.assertContains(feed_response, post.track_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Post.objects.filter(author=self.user).exists())
+        self.assertContains(response, "Можно прикрепить только MP3-файл.")
 
     def test_create_post_view_accepts_image(self):
         with tempfile.TemporaryDirectory() as media_dir:

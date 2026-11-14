@@ -11,7 +11,7 @@
     </div>
     <div class="form-card">
         <h2>{% if post %}Редактировать публикацию{% else %}Новая публикация{% endif %}</h2>
-        <p class="form-subtitle">Текст до 2000 символов. Можно прикрепить изображение и ссылку на трек.</p>
+        <p class="form-subtitle">Текст до 2000 символов. Можно прикрепить изображение и выбрать трек из библиотеки или загрузить MP3.</p>
         <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             {{ form.as_p }}
