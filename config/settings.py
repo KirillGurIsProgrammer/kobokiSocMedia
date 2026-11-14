@@ -163,10 +163,11 @@ USE_TZ = True
 # Static and media files
 # ---------------------------------------------------------------------------
 
-STATIC_URL = env("STATIC_URL", "static/")
+STATIC_URL = env("STATIC_URL", "/static/")
 STATICFILES_DIRS = [BASE_DIR / "static"]
 MEDIA_URL = env("MEDIA_URL", "/media/")
 MEDIA_ROOT = BASE_DIR / env("MEDIA_ROOT", "media")
+SERVE_MEDIA = env_bool("SERVE_MEDIA", DEBUG)
 
 
 # ---------------------------------------------------------------------------

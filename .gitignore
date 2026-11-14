@@ -73,6 +73,7 @@ desktop.ini
 logs/
 tmp/
 temp/
+docs/
 
 # ==============================
 # AI / local models
