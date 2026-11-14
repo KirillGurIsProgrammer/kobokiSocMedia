@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#0d0b10">
     <title>{% block title %}Koboki{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=6">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=7">
     <link rel="stylesheet" href="{% static 'css/music.css' %}?v=1">
     <script src="{% static 'js/player.js' %}?v=1" defer></script>
 </head>
@@ -26,6 +26,9 @@
                     <span class="side-icon" aria-hidden="true">♫</span><span>Музыка</span>
                 </a>
                 {% if user.is_authenticated %}
+                    <a class="side-link {% if request.resolver_match.app_name == 'chat' %}is-active{% endif %}" href="{% url 'chat:inbox' %}">
+                        <span class="side-icon" aria-hidden="true">✉</span><span>Сообщения</span>
+                    </a>
                     <a class="side-link {% if request.resolver_match.view_name == 'accounts:user_directory' %}is-active{% endif %}" href="{% url 'accounts:user_directory' %}">
                         <span class="side-icon" aria-hidden="true">♧</span><span>Добавить друзей</span>
                     </a>

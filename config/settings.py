@@ -58,6 +58,8 @@ INSTALLED_APPS = [
     "apps.interactions",
     "apps.messaging",
     "apps.music",
+    "apps.chat",
+    "apps.comments",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

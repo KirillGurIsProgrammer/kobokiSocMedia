@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="chat-page">
+  <div class="page-heading">
+    <div><span class="eyebrow"><span class="eyebrow-dot"></span> ЛИЧНЫЕ СООБЩЕНИЯ</span><h1>Диалоги.</h1></div>
+    {% if unread_total %}<span class="unread-badge">{{ unread_total }} непрочитанных</span>{% endif %}
+  </div>
+  <div class="conversation-list">
+    {% for conversation in conversations %}
+      <a class="conversation-card" href="{% url 'chat:dialog' conversation.id %}">
+        <div>
+          {% for participant in conversation.participants.all %}
+            {% if participant != user %}<span class="conversation-name">{{ participant.username }}</span>{% endif %}
+          {% endfor %}
+          {% with last=conversation.messages.last %}
+            <p class="conversation-preview">{{ last.text|default:"Вложение"|truncatechars:80|default:"Сообщений пока нет" }}</p>
+          {% endwith %}
+        </div>
+        <span class="conversation-arrow" aria-hidden="true">↗</span>
+      </a>
+    {% empty %}
+      <div class="empty-card"><p>Диалогов пока нет.</p><span>Откройте профиль пользователя, чтобы начать общение.</span></div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

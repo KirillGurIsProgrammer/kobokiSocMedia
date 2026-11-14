@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="chat-page">
+  <div class="chat-shell">
+    <div class="chat-toolbar">
+      <h1>Диалог</h1>
+      <a href="{% url 'chat:inbox' %}">← Все диалоги</a>
+    </div>
+    <div class="messages">
+      {% for message in conversation.messages.all %}
+        {% include "chat/_message.html" with message=message %}
+      {% empty %}
+        <div class="empty-card"><p>Сообщений пока нет.</p><span>Напишите первое сообщение.</span></div>
+      {% endfor %}
+    </div>
+    <form class="chat-form" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+      {{ form.text }}
+      {{ form.file }}
+      <button class="button button--small" type="submit">Отправить ↗</button>
+    </form>
+  </div>
+</section>
+{% endblock %}
