@@ -4,12 +4,23 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#0d0b10">
+    <meta name="theme-color" content="#111214">
     <title>{% block title %}Koboki{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=9">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=10">
     <script src="{% static 'js/player.js' %}?v=2" defer></script>
 </head>
 <body{% if request.resolver_match.app_name == 'music' %} class="music-page"{% endif %}>
+    <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <symbol id="icon-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1z"/></symbol>
+        <symbol id="icon-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+        <symbol id="icon-message" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></symbol>
+        <symbol id="icon-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 3.1a4 4 0 0 1 0 7.8M20 21v-2a4 4 0 0 0-3-3.9"/><circle cx="10" cy="7" r="4"/></symbol>
+        <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="icon-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></symbol>
+        <symbol id="icon-login" viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3M12 3h6a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-6"/></symbol>
+        <symbol id="icon-logout" viewBox="0 0 24 24"><path d="m14 7-5 5 5 5M9 12h12M12 3H6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h6"/></symbol>
+        <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 16V4m-5 5 5-5 5 5M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></symbol>
+    </svg>
     <div class="app-shell">
         <aside class="sidebar">
             <a class="brand" href="{% url 'feed:feed' %}" aria-label="Koboki — лента">
@@ -19,30 +30,30 @@
 
             <nav class="side-nav" aria-label="Основная навигация">
                 <a class="side-link {% if request.resolver_match.app_name == 'feed' and request.resolver_match.view_name != 'feed:post_create' and request.resolver_match.view_name != 'feed:post_edit' %}is-active{% endif %}" href="{% url 'feed:feed' %}">
-                    <span class="side-icon" aria-hidden="true">⌂</span><span>Лента</span>
+                    <svg class="side-icon" aria-hidden="true"><use href="#icon-home"></use></svg><span>Лента</span>
                 </a>
                 <a class="side-link {% if request.resolver_match.app_name == 'music' %}is-active{% endif %}" href="{% url 'music:library' %}">
-                    <span class="side-icon" aria-hidden="true">♫</span><span>Музыка</span>
+                    <svg class="side-icon" aria-hidden="true"><use href="#icon-music"></use></svg><span>Музыка</span>
                 </a>
                 {% if user.is_authenticated %}
                     <a class="side-link {% if request.resolver_match.app_name == 'chat' %}is-active{% endif %}" href="{% url 'chat:inbox' %}">
-                        <span class="side-icon" aria-hidden="true">✉</span><span>Сообщения</span>
+                        <svg class="side-icon" aria-hidden="true"><use href="#icon-message"></use></svg><span>Сообщения</span>
                     </a>
                     <a class="side-link {% if request.resolver_match.view_name == 'accounts:user_directory' %}is-active{% endif %}" href="{% url 'accounts:user_directory' %}">
-                        <span class="side-icon" aria-hidden="true">♧</span><span>Добавить друзей</span>
+                        <svg class="side-icon" aria-hidden="true"><use href="#icon-users"></use></svg><span>Добавить друзей</span>
                     </a>
                     <a class="side-link {% if request.resolver_match.view_name == 'feed:post_create' %}is-active{% endif %}" href="{% url 'feed:post_create' %}">
-                        <span class="side-icon" aria-hidden="true">＋</span><span>Создать пост</span>
+                        <svg class="side-icon" aria-hidden="true"><use href="#icon-plus"></use></svg><span>Создать пост</span>
                     </a>
                     <a class="side-link {% if request.resolver_match.view_name == 'accounts:profile' %}is-active{% endif %}" href="{% url 'accounts:profile' user.username %}">
-                        <span class="side-icon" aria-hidden="true">♙</span><span>Профиль</span>
+                        <svg class="side-icon" aria-hidden="true"><use href="#icon-user"></use></svg><span>Профиль</span>
                     </a>
                 {% else %}
                     <a class="side-link {% if request.resolver_match.view_name == 'accounts:login' %}is-active{% endif %}" href="{% url 'accounts:login' %}">
-                        <span class="side-icon" aria-hidden="true">↪</span><span>Войти</span>
+                        <svg class="side-icon" aria-hidden="true"><use href="#icon-login"></use></svg><span>Войти</span>
                     </a>
                     <a class="side-link {% if request.resolver_match.view_name == 'accounts:register' %}is-active{% endif %}" href="{% url 'accounts:register' %}">
-                        <span class="side-icon" aria-hidden="true">＋</span><span>Регистрация</span>
+                        <svg class="side-icon" aria-hidden="true"><use href="#icon-plus"></use></svg><span>Регистрация</span>
                     </a>
                 {% endif %}
             </nav>
@@ -62,7 +73,7 @@
                 <a class="sidebar-create" href="{% url 'feed:post_create' %}"><span>＋</span> Новая публикация</a>
                 <form class="sidebar-logout" method="post" action="{% url 'accounts:logout' %}">
                     {% csrf_token %}
-                    <button class="side-link" type="submit"><span class="side-icon" aria-hidden="true">↪</span><span>Выйти</span></button>
+                    <button class="side-link" type="submit"><svg class="side-icon" aria-hidden="true"><use href="#icon-logout"></use></svg><span>Выйти</span></button>
                 </form>
             {% endif %}
 

@@ -20,6 +20,7 @@ class TrackForm(forms.ModelForm):
         self.fields["album"].queryset = (
             Album.objects.filter(owner=user) if user else Album.objects.none()
         )
+        self.fields["album"].empty_label = "Без альбома"
 
 
 class AlbumForm(forms.ModelForm):
