@@ -5,7 +5,7 @@ import re
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Avg, Count, Exists, OuterRef, Q
+from django.db.models import Avg, Count, Exists, Max, OuterRef, Q
 from django.utils.text import slugify
 from django.utils import timezone
 from datetime import timedelta
@@ -16,6 +16,7 @@ from .models import (
     CollaborativePlaylist,
     CollaborativePlaylistInvite,
     CollaborativePlaylistMember,
+    CollaborativePlaylistTrack,
     Like,
     ListenAlong,
     MusicSettings,
@@ -503,7 +504,6 @@ def can_join_session(listener, host):
             return False
     return NowPlaying.objects.filter(
         user=host,
-        is_playing=True,
         updated_at__gte=timezone.now() - timedelta(seconds=15),
     ).exists()
 
@@ -512,7 +512,7 @@ def join_session(listener, host):
     if listener.pk == host.pk:
         raise ValidationError("Нельзя подключиться к собственному плееру.")
     if not can_join_session(listener, host):
-        raise PermissionDenied("Сеанс недоступен или хозяин сейчас не слушает.")
+        raise PermissionDenied("Сеанс недоступен или пользователь не делится музыкой.")
     session, _created = ListenAlong.objects.update_or_create(
         listener=listener,
         defaults={"host": host},
@@ -594,41 +594,44 @@ def delete_collaborative_playlist(user, playlist):
     playlist.delete()
 
 
-def get_collaborative_playlist_tracks(user, playlist, *, limit=40):
+def add_collaborative_playlist_track(user, playlist, track):
     ensure_collaborative_member(user, playlist)
-    member_ids = list(playlist.memberships.order_by("joined_at", "pk").values_list("user_id", flat=True))
-    liked_by_member = {member_id: [] for member_id in member_ids}
-    likes = (
-        Like.objects.filter(user_id__in=member_ids)
-        .select_related("user", "track", "track__owner", "track__album")
+    with transaction.atomic():
+        position = playlist.track_entries.aggregate(value=Max("position"))["value"]
+        _entry, created = CollaborativePlaylistTrack.objects.get_or_create(
+            playlist=playlist,
+            track=track,
+            defaults={
+                "added_by": user,
+                "position": 0 if position is None else position + 1,
+            },
+        )
+    return created
+
+
+def remove_collaborative_playlist_track(user, playlist, track):
+    ensure_collaborative_member(user, playlist)
+    deleted, _details = CollaborativePlaylistTrack.objects.filter(
+        playlist=playlist,
+        track=track,
+    ).delete()
+    return bool(deleted)
+
+
+def get_collaborative_playlist_tracks(user, playlist):
+    ensure_collaborative_member(user, playlist)
+    entries = (
+        CollaborativePlaylistTrack.objects.filter(playlist=playlist)
+        .select_related("track", "track__owner", "track__album", "added_by")
         .prefetch_related("track__track_tags__tag")
-        .order_by("user_id", "-created_at", "-pk")
+        .order_by("position", "pk")
     )
-    for like in likes:
-        liked_by_member[like.user_id].append(like)
-    result = []
-    seen = set()
-    positions = {member_id: 0 for member_id in member_ids}
-    while len(result) < min(limit, 40):
-        added = False
-        for member_id in member_ids:
-            likes = liked_by_member[member_id]
-            position = positions[member_id]
-            while position < len(likes) and likes[position].track_id in seen:
-                position += 1
-            positions[member_id] = position
-            if position < len(likes):
-                like = likes[position]
-                positions[member_id] += 1
-                seen.add(like.track_id)
-                like.track.brought_by = like.user
-                result.append(like.track)
-                added = True
-                if len(result) >= min(limit, 40):
-                    break
-        if not added:
-            break
-    return result
+    tracks = []
+    for entry in entries:
+        entry.track.brought_by = entry.added_by
+        entry.track.collaborative_entry = entry
+        tracks.append(entry.track)
+    return tracks
 
 
 def get_music_settings(user):

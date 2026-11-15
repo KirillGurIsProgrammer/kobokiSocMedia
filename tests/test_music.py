@@ -269,7 +269,7 @@ class MusicTests(TestCase):
 
         Follow.objects.create(follower=self.alice, following=self.bob)
         playlist = services.create_collaborative_playlist(self.alice, title="Вместе", invitees=[self.bob])
-        Like.objects.create(user=self.alice, track=self.track)
+        services.add_collaborative_playlist_track(self.alice, playlist, self.track)
 
         self.assertEqual(list(playlist.memberships.values_list("user_id", flat=True)), [self.alice.pk])
         self.assertEqual(services.get_collaborative_playlist_tracks(self.alice, playlist), [self.track])
@@ -279,26 +279,69 @@ class MusicTests(TestCase):
         invite = playlist.invites.get(user=self.bob)
         services.respond_collaborative_invite(self.bob, invite, accept=True)
         self.assertTrue(playlist.memberships.filter(user=self.bob).exists())
+        self.assertEqual(services.get_collaborative_playlist_tracks(self.bob, playlist), [self.track])
 
-    def test_collaborative_playlist_round_robins_likes_without_duplicates(self):
+    def test_collaborative_playlist_form_renders_full_width_invite_selector(self):
+        Follow.objects.create(follower=self.alice, following=self.bob)
+        self.client.force_login(self.alice)
+
+        response = self.client.get(reverse("music:collaborative_playlist_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="music-form collaborative-playlist-form"')
+        self.assertContains(response, 'name="invitees"')
+        self.assertContains(response, "multiple")
+        self.assertContains(response, "bob")
+
+    def test_collaborative_playlist_members_add_and_remove_tracks(self):
         Follow.objects.create(follower=self.alice, following=self.bob)
         playlist = services.create_collaborative_playlist(self.alice, title="Вместе", invitees=[self.bob])
         invite = playlist.invites.get(user=self.bob)
         services.respond_collaborative_invite(self.bob, invite, accept=True)
 
-        alice_second = self._track(self.alice, "Alice 2")
-        bob_first = self._track(self.bob, "Bob 1")
-        bob_second = self._track(self.bob, "Bob 2")
-        Like.objects.create(user=self.alice, track=self.track)
-        Like.objects.create(user=self.alice, track=alice_second)
-        Like.objects.create(user=self.bob, track=self.track)
-        Like.objects.create(user=self.bob, track=bob_first)
-        Like.objects.create(user=self.bob, track=bob_second)
+        second = self._track(self.bob, "Bob 2")
+        self.assertTrue(services.add_collaborative_playlist_track(self.bob, playlist, self.track))
+        self.assertTrue(services.add_collaborative_playlist_track(self.alice, playlist, second))
+        self.assertFalse(services.add_collaborative_playlist_track(self.bob, playlist, self.track))
 
         tracks = services.get_collaborative_playlist_tracks(self.alice, playlist)
+        self.assertEqual([track.pk for track in tracks], [self.track.pk, second.pk])
+        self.assertEqual([track.brought_by.pk for track in tracks], [self.bob.pk, self.alice.pk])
 
-        self.assertEqual([track.pk for track in tracks], [alice_second.pk, bob_second.pk, self.track.pk, bob_first.pk])
-        self.assertEqual([track.brought_by.pk for track in tracks], [self.alice.pk, self.bob.pk, self.alice.pk, self.bob.pk])
+        self.assertTrue(services.remove_collaborative_playlist_track(self.alice, playlist, self.track))
+        self.assertFalse(services.remove_collaborative_playlist_track(self.bob, playlist, self.track))
+        self.assertEqual(services.get_collaborative_playlist_tracks(self.bob, playlist), [second])
+
+    def test_collaborative_playlist_member_can_edit_from_detail_page(self):
+        Follow.objects.create(follower=self.alice, following=self.bob)
+        playlist = services.create_collaborative_playlist(self.alice, title="Вместе", invitees=[self.bob])
+        services.respond_collaborative_invite(
+            self.bob,
+            playlist.invites.get(user=self.bob),
+            accept=True,
+        )
+        self.client.force_login(self.bob)
+        details_url = reverse("music:collaborative_playlist_detail", args=[playlist.pk])
+        details = self.client.get(details_url)
+        self.assertContains(details, "Добавить трек")
+        self.assertContains(details, f'data-playlist-track-list="shared-{playlist.pk}"')
+
+        response = self.client.post(
+            details_url,
+            {"track": self.track.pk},
+        )
+
+        self.assertRedirects(response, details_url)
+        self.assertEqual(services.get_collaborative_playlist_tracks(self.alice, playlist), [self.track])
+
+        removed = self.client.post(
+            reverse(
+                "music:collaborative_playlist_remove_track",
+                args=[playlist.pk, self.track.pk],
+            )
+        )
+        self.assertRedirects(removed, details_url)
+        self.assertEqual(services.get_collaborative_playlist_tracks(self.alice, playlist), [])
 
     def test_collaborative_playlist_is_private_and_only_creator_can_delete(self):
         Follow.objects.create(follower=self.alice, following=self.bob)
@@ -510,6 +553,19 @@ class MusicTests(TestCase):
         )
         self.assertFalse(services.can_join_session(self.bob, self.alice))
 
+    def test_join_session_is_available_while_host_is_paused(self):
+        NowPlaying.objects.create(
+            user=self.alice,
+            track=self.track,
+            position_seconds=12,
+            duration_seconds=90,
+            is_playing=False,
+        )
+
+        self.assertTrue(services.can_join_session(self.bob, self.alice))
+        session = services.join_session(self.bob, self.alice)
+        self.assertEqual(session.host, self.alice)
+
     def test_join_and_leave_api(self):
         NowPlaying.objects.create(user=self.alice, track=self.track, is_playing=True)
         self.client.login(username="bob", password="pass12345")
@@ -527,14 +583,48 @@ class MusicTests(TestCase):
         self.assertFalse(ListenAlong.objects.filter(listener=self.bob).exists())
 
     def test_now_playing_template_tag_renders_card(self):
-        NowPlaying.objects.create(user=self.alice, track=self.track, is_playing=True)
+        NowPlaying.objects.create(
+            user=self.alice,
+            track=self.track,
+            position_seconds=35,
+            duration_seconds=180,
+            is_playing=False,
+        )
         rendered = Template(
             "{% load music_tags %}{% now_playing_card profile_user %}"
         ).render(Context({"profile_user": self.alice, "user": self.bob}))
 
-        self.assertIn("Сейчас слушает", rendered)
+        self.assertIn("На паузе", rendered)
         self.assertIn("Слушать вместе", rendered)
+        self.assertIn("00:35", rendered)
+        self.assertIn('aria-valuenow="19"', rendered)
 
+    def test_other_users_profile_always_offers_listen_along_for_fresh_paused_track(self):
+        NowPlaying.objects.create(
+            user=self.alice,
+            track=self.track,
+            position_seconds=12,
+            duration_seconds=90,
+            is_playing=False,
+        )
+        self.client.force_login(self.bob)
+
+        response = self.client.get(reverse("accounts:profile", args=[self.alice.username]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Слушать вместе")
+        self.assertContains(response, "Синхронно с @alice")
+        self.assertContains(response, 'data-host-is-playing="false"')
+        self.assertContains(response, f'data-track-id="{self.track.pk}"')
+
+    def test_other_users_profile_shows_listen_along_when_they_are_offline(self):
+        self.client.force_login(self.bob)
+
+        response = self.client.get(reverse("accounts:profile", args=[self.alice.username]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Слушать вместе")
+        self.assertContains(response, "Нет активного трека")
     def test_foreign_track_cannot_be_deleted(self):
         self.client.login(username="bob", password="pass12345")
         resp = self.client.post(reverse("music:track_delete", args=[self.track.pk]))

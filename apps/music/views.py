@@ -9,7 +9,7 @@ import json
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from . import services
 from .forms import (
@@ -341,12 +341,31 @@ def collaborative_playlist_create(request):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def collaborative_playlist_detail(request, playlist_id):
     playlist = get_object_or_404(CollaborativePlaylist.objects.select_related("creator"), pk=playlist_id)
     try:
         tracks = services.get_collaborative_playlist_tracks(request.user, playlist)
     except PermissionDenied:
         raise Http404
+    form = PlaylistTrackForm(request.POST if request.method == "POST" else None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            added = services.add_collaborative_playlist_track(
+                request.user,
+                playlist,
+                form.cleaned_data["track"],
+            )
+        except PermissionDenied:
+            raise Http404
+        except ValidationError as error:
+            form.add_error("track", error)
+        else:
+            if added:
+                messages.success(request, "Трек добавлен.")
+            else:
+                messages.info(request, "Этот трек уже есть в плейлисте.")
+            return redirect("music:collaborative_playlist_detail", playlist.pk)
     track_data = {
         track.pk: track for track in services.with_like_data(
             Track.objects.filter(pk__in=[item.pk for item in tracks]).select_related("owner", "album"),
@@ -360,6 +379,7 @@ def collaborative_playlist_detail(request, playlist_id):
     return render(request, "music/collaborative_playlist_detail.html", {
         "playlist": playlist,
         "tracks": tracks,
+        "track_form": form,
         "is_creator": playlist.creator_id == request.user.pk,
         "members": playlist.memberships.select_related("user").order_by("joined_at"),
     })
@@ -404,12 +424,19 @@ def collaborative_playlist_delete(request, playlist_id):
 
 @login_required
 @require_POST
-def collaborative_playlist_refresh(request, playlist_id):
+def collaborative_playlist_remove_track(request, playlist_id, track_id):
     playlist = get_object_or_404(CollaborativePlaylist, pk=playlist_id)
+    track = get_object_or_404(Track, pk=track_id)
     try:
-        services.ensure_collaborative_member(request.user, playlist)
+        removed = services.remove_collaborative_playlist_track(
+            request.user,
+            playlist,
+            track,
+        )
     except PermissionDenied:
         raise Http404
+    if removed:
+        messages.success(request, "Трек удалён из совместного плейлиста.")
     return redirect("music:collaborative_playlist_detail", playlist.pk)
 
 

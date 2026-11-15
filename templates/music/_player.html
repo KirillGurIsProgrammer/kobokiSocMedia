@@ -13,8 +13,17 @@
             data-host-endpoint="{% url 'music:now_playing_detail' listen_session.host.username %}"
             data-leave-url="{% url 'music:listen_along_leave' %}"
         {% endif %}>
-        <span>Вы слушаете вместе с <strong data-listen-along-host>{% if listen_session %}@{{ listen_session.host.username }}{% endif %}</strong></span>
-        <small data-host-listener-count hidden>С вами слушают: 0</small>
+        <span class="listen-along-host-copy">Вместе с <strong data-listen-along-host>{% if listen_session %}@{{ listen_session.host.username }}{% endif %}</strong></span>
+        <span class="listen-along-track-copy">
+            <strong data-listen-along-track>Синхронизация трека…</strong>
+            <small data-listen-along-artist></small>
+        </span>
+        <span class="listen-along-progress">
+            <small data-listen-along-current>0:00</small>
+            <span class="listen-along-progress-track"><i data-listen-along-progress></i></span>
+            <small data-listen-along-duration>0:00</small>
+        </span>
+        <small class="listen-along-listener-count" data-host-listener-count hidden>С вами слушают: 0</small>
         <form method="post" action="{% url 'music:listen_along_leave' %}" data-listen-along-leave>
             {% csrf_token %}<button type="submit" aria-label="Выйти из совместного прослушивания" title="Выйти"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button>
         </form>

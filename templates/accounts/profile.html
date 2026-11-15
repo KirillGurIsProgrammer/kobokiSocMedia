@@ -4,6 +4,7 @@
 {% block title %}{{ profile_user.username }} — Koboki{% endblock %}
 
 {% block content %}
+<div class="profile-page">
 <section class="profile-card">
     <div class="profile-cover"></div>
     <div class="profile-content">
@@ -78,5 +79,6 @@
             <p>Публикаций пока нет.</p>
         </div>
     {% endfor %}
-</section>
-{% endblock %}
+    </section>
+    </div>
+    {% endblock %}

@@ -10,6 +10,11 @@ register = template.Library()
 @register.inclusion_tag("music/_now_playing.html", takes_context=True)
 def now_playing_card(context, profile_user):
     viewer = context.get("user")
+    is_other_profile = bool(
+        viewer
+        and viewer.is_authenticated
+        and viewer.pk != profile_user.pk
+    )
     snapshot = services.now_playing_snapshot(profile_user, viewer)
     joined = services.get_listen_along(viewer) if viewer and viewer.is_authenticated else None
     track = snapshot.get("track")
@@ -35,9 +40,11 @@ def now_playing_card(context, profile_user):
         "snapshot": snapshot,
         "source": source,
         "endpoint": reverse("music:now_playing_detail", args=[profile_user.username]),
+        "is_other_profile": is_other_profile,
+        "is_joined": bool(joined and joined.host_id == profile_user.pk),
         "can_join": bool(
-            viewer
-            and viewer.is_authenticated
+            is_other_profile
+            and snapshot.get("visible")
             and (joined is None or joined.host_id != profile_user.pk)
             and services.can_join_session(viewer, profile_user)
         ),

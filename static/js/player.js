@@ -28,6 +28,7 @@
     let restoring = false;
     let joinedHost = null;
     let syncInFlight = false;
+    let pendingHostPosition = null;
     let toastTimer = 0;
     let radioMode = null;
     let radioLoading = false;
@@ -566,6 +567,7 @@
 
     function resetListenAlong(message = "") {
         joinedHost = null;
+        pendingHostPosition = null;
         try { sessionStorage.removeItem("koboki.listen-along.v1"); } catch (_) { /* Ignore storage failures. */ }
         const banner = player.querySelector("[data-listen-along-banner]");
         banner.hidden = true;
@@ -574,6 +576,28 @@
         banner.removeAttribute("data-leave-url");
         updateListenAlongControls();
         if (message) showListenAlongNotice(message);
+    }
+
+    function renderListenAlongProgress() {
+        if (!joinedHost || !activeTrack) return;
+        player.querySelector("[data-listen-along-track]").textContent = activeTrack.title;
+        player.querySelector("[data-listen-along-artist]").textContent = activeTrack.artist || "";
+        const trackDuration = Number.isFinite(audio.duration) ? audio.duration : 0;
+        const trackPosition = Math.min(trackDuration || Infinity, audio.currentTime || 0);
+        player.querySelector("[data-listen-along-current]").textContent = formatTime(trackPosition);
+        player.querySelector("[data-listen-along-duration]").textContent = formatTime(trackDuration);
+        player.querySelector("[data-listen-along-progress]").style.width =
+            `${trackDuration ? Math.min(100, trackPosition / trackDuration * 100) : 0}%`;
+    }
+
+    function seekToHostPosition(position) {
+        if (!Number.isFinite(position)) return;
+        if (audio.readyState < 1) {
+            pendingHostPosition = position;
+            return;
+        }
+        pendingHostPosition = null;
+        audio.currentTime = Math.min(position, Number.isFinite(audio.duration) ? audio.duration : position);
     }
 
     async function leaveListenAlong({ beacon = false, message = "" } = {}) {
@@ -621,13 +645,16 @@
                     liked: false,
                     likeCount: 0,
                 };
+                restoring = false;
                 queue = [hostTrack];
                 setTrack(hostTrack, 0, false);
             }
-            const drift = Math.abs(audio.currentTime - Number(state.position_seconds || 0));
-            if (drift > 2) audio.currentTime = Number(state.position_seconds || 0);
+            const hostPosition = Number(state.position_seconds || 0);
+            const drift = Math.abs(audio.currentTime - hostPosition);
+            if (audio.readyState < 1 || drift > 2) seekToHostPosition(hostPosition);
             if (state.is_playing && audio.paused) audio.play().catch(() => {});
             if (!state.is_playing && !audio.paused) audio.pause();
+            renderListenAlongProgress();
             player.querySelectorAll("[data-host-listener-count]").forEach((counter) => {
                 counter.textContent = `С вами слушают: ${state.listener_count || 0}`;
                 counter.hidden = false;
@@ -640,9 +667,24 @@
     }
 
     async function joinListenAlong(form) {
+        restoring = false;
         ensureAudioGraph();
-        const playRequest = audio.play();
-        if (playRequest && typeof playRequest.catch === "function") playRequest.catch(() => {});
+        const hostTrack = {
+            id: form.dataset.trackId,
+            url: form.dataset.trackUrl,
+            title: form.dataset.trackTitle,
+            artist: form.dataset.trackArtist,
+            cover: form.dataset.trackCover || "",
+            playlistId: form.dataset.playlistId || "",
+            liked: false,
+            likeCount: 0,
+        };
+        if (hostTrack.id && hostTrack.url) {
+            audio.pause();
+            queue = [hostTrack];
+            setTrack(hostTrack, 0, false);
+            if (form.dataset.hostIsPlaying === "true") audio.play().catch(() => {});
+        }
         const csrf = form.querySelector("[name=csrfmiddlewaretoken]")?.value;
         if (!csrf) {
             form.submit();
@@ -674,9 +716,8 @@
             banner.hidden = false;
             updateListenAlongControls();
             await synchronizeWithHost();
-            if (playRequest && typeof playRequest.catch === "function") playRequest.catch(() => {});
         } catch (error) {
-            if (playRequest && typeof playRequest.catch === "function") playRequest.catch(() => {});
+            audio.pause();
             showListenAlongNotice(error.message || "Не удалось подключиться к сеансу");
         }
     }
@@ -907,6 +948,7 @@
         if (Number.isFinite(audio.duration) && audio.duration > 0) seek.value = String(Math.round(audio.currentTime / audio.duration * 1000));
         paintRange(seek);
         updateListenAlongControls();
+        renderListenAlongProgress();
         saveState();
         if (radioMode && queue.length - queueIndex <= 3) loadRadioTracks();
     });
@@ -914,6 +956,9 @@
         duration.textContent = formatTime(audio.duration);
         paintRange(seek);
         updateListenAlongControls();
+        if (joinedHost && pendingHostPosition !== null) {
+            seekToHostPosition(pendingHostPosition);
+        }
         if (restoring && activeTrack) {
             const state = restoring;
             audio.currentTime = Math.min(state.position || 0, audio.duration || 0);
@@ -921,6 +966,7 @@
             audio.pause();
             saveState();
         }
+        renderListenAlongProgress();
         syncMediaSession();
     });
     audio.addEventListener("ended", () => {
@@ -1010,25 +1056,49 @@
 
     function updateNowPlayingCard(card, data) {
         const status = card.querySelector("[data-now-status]");
+        const statusLabel = card.querySelector("[data-now-status-label]") || status;
         const details = card.querySelector("[data-now-details]");
         const indicator = card.querySelector("[data-now-indicator]");
+        const emptyStatus = card.querySelector("[data-now-empty-status]");
         if (!data.visible) {
-            status.textContent = "Пользователь скрыл эту информацию.";
+            statusLabel.textContent = "Пользователь скрыл эту информацию.";
             if (details) details.hidden = true;
+            if (emptyStatus) {
+                emptyStatus.textContent = status.textContent;
+                emptyStatus.hidden = false;
+            }
             indicator.classList.remove("is-playing");
             return;
         }
         if (!data.track) {
             if (details) details.hidden = true;
-            status.textContent = data.last_seen_minutes
+            const message = data.last_seen_minutes
                 ? `Был(а) в сети ${data.last_seen_minutes} мин. назад`
                 : "Сейчас не слушает";
+            statusLabel.textContent = message;
+            if (emptyStatus) {
+                emptyStatus.textContent = message;
+                emptyStatus.hidden = false;
+            }
             indicator.classList.remove("is-playing");
+            card.querySelector("[data-host-listener-count]")?.setAttribute("hidden", "");
             return;
         }
         details.hidden = false;
+        if (emptyStatus) emptyStatus.hidden = true;
         card.querySelector("[data-now-title]").textContent = data.track.title;
         card.querySelector("[data-now-artist]").textContent = data.track.artist;
+        const cover = card.querySelector("[data-now-cover]");
+        const coverWrap = card.querySelector("[data-now-cover-wrap]");
+        if (data.cover_url) {
+            cover.src = data.cover_url;
+            cover.hidden = false;
+            coverWrap.classList.add("has-cover");
+        } else {
+            cover.removeAttribute("src");
+            cover.hidden = true;
+            coverWrap.classList.remove("has-cover");
+        }
         const source = card.querySelector("[data-now-source]");
         source.replaceChildren();
         if (data.source?.url) {
@@ -1043,10 +1113,20 @@
         card.dataset.duration = String(data.duration_seconds || 0);
         card.dataset.playing = String(Boolean(data.is_playing));
         card.dataset.syncedAt = String(Date.now());
-        status.textContent = data.is_playing ? "Слушает сейчас" : "Пауза";
+        statusLabel.textContent = data.is_playing ? "Слушает сейчас" : "На паузе";
+        status.classList.toggle("is-playing", Boolean(data.is_playing));
         indicator.classList.toggle("is-playing", Boolean(data.is_playing));
+        indicator.setAttribute("aria-label", data.is_playing ? "Воспроизведение" : "Пауза");
+        const progress = card.querySelector("[data-now-progress]");
+        const percent = data.duration_seconds
+            ? Math.min(100, Number(data.position_seconds || 0) / data.duration_seconds * 100)
+            : 0;
+        progress.parentElement.setAttribute("aria-valuenow", String(Math.round(percent)));
         const listenerCount = card.querySelector("[data-host-listener-count]");
-        if (listenerCount) listenerCount.textContent = `С вами слушают: ${data.listener_count || 0}`;
+        if (listenerCount) {
+            listenerCount.textContent = `С вами слушают: ${data.listener_count || 0}`;
+            listenerCount.hidden = false;
+        }
         renderNowPlayingProgress(card);
     }
 

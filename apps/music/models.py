@@ -276,6 +276,37 @@ class CollaborativePlaylistMember(models.Model):
         constraints = [models.UniqueConstraint(fields=("playlist", "user"), name="unique_music_collab_member")]
 
 
+class CollaborativePlaylistTrack(models.Model):
+    playlist = models.ForeignKey(
+        CollaborativePlaylist,
+        on_delete=models.CASCADE,
+        related_name="track_entries",
+    )
+    track = models.ForeignKey(
+        Track,
+        on_delete=models.CASCADE,
+        related_name="collaborative_playlist_entries",
+    )
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="collaborative_playlist_tracks_added",
+    )
+    position = models.PositiveIntegerField(default=0)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("position", "pk")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("playlist", "track"),
+                name="unique_track_per_collaborative_playlist",
+            ),
+        ]
+
+
 class Review(models.Model):
     """A review for exactly one track or album."""
 

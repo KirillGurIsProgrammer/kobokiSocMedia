@@ -1,18 +1,87 @@
 {% extends "base.html" %}
 {% block title %}{{ playlist.title }} · Совместный плейлист{% endblock %}
 {% block content %}
-<div class="music-library">
-    <header class="music-heading"><div><span class="eyebrow">СОВМЕСТНЫЙ ПЛЕЙЛИСТ</span><h1>{{ playlist.title }}</h1><p>Участники: {% for member in members %}@{{ member.user.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</p></div></header>
-    <div class="playlist-actions">
-        <form method="post" action="{% url 'music:collaborative_playlist_refresh' playlist.pk %}">{% csrf_token %}<button class="button button--small" type="submit">Обновить</button></form>
-        {% if is_creator %}<form method="post" action="{% url 'music:collaborative_playlist_delete' playlist.pk %}">{% csrf_token %}<button class="button button--outline button--small" type="submit">Удалить</button></form>{% else %}<form method="post" action="{% url 'music:collaborative_playlist_leave' playlist.pk %}">{% csrf_token %}<button class="button button--outline button--small" type="submit">Выйти</button></form>{% endif %}
+<div class="music-library collaborative-playlist-page">
+    <header class="music-heading collaborative-playlist-heading">
+        <div>
+            <span class="eyebrow">СОВМЕСТНЫЙ ПЛЕЙЛИСТ</span>
+            <h1>{{ playlist.title }}</h1>
+            <p>{{ members|length }} участника · добавляйте музыку вместе</p>
+        </div>
+        <div class="playlist-actions">
+            {% if is_creator %}
+                <form method="post" action="{% url 'music:collaborative_playlist_delete' playlist.pk %}">
+                    {% csrf_token %}
+                    <button class="button button--outline button--small" type="submit">Удалить</button>
+                </form>
+            {% else %}
+                <form method="post" action="{% url 'music:collaborative_playlist_leave' playlist.pk %}">
+                    {% csrf_token %}
+                    <button class="button button--outline button--small" type="submit">Выйти</button>
+                </form>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="collaborative-members" aria-label="Участники плейлиста">
+        <div class="collaborative-member-stack" aria-hidden="true">
+            {% for member in members|slice:":5" %}
+                <span>{{ member.user.username|first|upper }}</span>
+            {% endfor %}
+        </div>
+        <div class="collaborative-member-names">
+            <strong>Вместе слушают</strong>
+            <span>{% for member in members %}@{{ member.user.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+        </div>
+    </section>
+
+    <section class="collaborative-add-track" aria-labelledby="collaborative-add-heading">
+        <div>
+            <span class="eyebrow">ОБЩАЯ КОЛЛЕКЦИЯ</span>
+            <h2 id="collaborative-add-heading">Добавить трек</h2>
+        </div>
+        <form class="collaborative-add-form" method="post">
+            {% csrf_token %}
+            <label class="music-visually-hidden" for="{{ track_form.track.id_for_label }}">Выберите трек из библиотеки</label>
+            {{ track_form.track }}
+            {% for error in track_form.track.errors %}<small class="form-error">{{ error }}</small>{% endfor %}
+            <button class="button button--small" type="submit">Добавить <span aria-hidden="true">＋</span></button>
+        </form>
+    </section>
+
+    <div class="collaborative-track-heading">
+        <div>
+            <h2>Треки</h2>
+            <span>{{ tracks|length }}{% if tracks|length == 1 %} композиция{% elif tracks|length > 1 and tracks|length < 5 %} композиции{% else %} композиций{% endif %}</span>
+        </div>
+        {% if tracks %}
+            <button class="button button--small" type="button" data-play-playlist data-playlist-id="shared-{{ playlist.pk }}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 10 6-10 6V6Z"></path></svg>
+                Слушать
+            </button>
+        {% endif %}
     </div>
-    <p class="form-help">Список собирается по кругу из лайков участников и обновляется при открытии или нажатии «Обновить».</p>
-    <div class="music-track-list" data-track-list data-playlist-track-list="shared-{{ playlist.pk }}">
+    <div class="music-track-list collaborative-track-list" data-track-list data-playlist-track-list="shared-{{ playlist.pk }}">
         {% for track in tracks %}
-        {% with playlist=None %}{% include "music/_track_row.html" %}{% endwith %}
-        {% empty %}<div class="music-empty"><strong>Пока нет треков</strong><p>Поставьте лайк трекам — они появятся после обновления подборки.</p></div>{% endfor %}
+            <div class="collaborative-track-item">
+                {% with playlist=None %}{% include "music/_track_row.html" %}{% endwith %}
+                <span class="collaborative-track-added">
+                    {% if track.brought_by %}Добавил(а) @{{ track.brought_by.username }}{% else %}Добавлено в плейлист{% endif %}
+                </span>
+                <form method="post" action="{% url 'music:collaborative_playlist_remove_track' playlist.pk track.pk %}">
+                    {% csrf_token %}
+                    <button class="collaborative-track-remove" type="submit" aria-label="Удалить {{ track.title }} из плейлиста" title="Удалить трек">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"></path></svg>
+                    </button>
+                </form>
+            </div>
+        {% empty %}
+            <div class="music-empty collaborative-empty">
+                <span aria-hidden="true">♫</span>
+                <strong>Пока нет треков</strong>
+                <p>Добавьте первую песню из библиотеки — она появится у всех участников.</p>
+            </div>
+        {% endfor %}
     </div>
-    {% if tracks %}<button class="button button--small" type="button" data-play-playlist data-playlist-id="shared-{{ playlist.pk }}">Слушать плейлист</button>{% endif %}
 </div>
 {% endblock %}

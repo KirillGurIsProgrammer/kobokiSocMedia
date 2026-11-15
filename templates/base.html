@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#0d0b10">
     <title>{% block title %}Koboki{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=8">
-    <link rel="stylesheet" href="{% static 'css/music.css' %}?v=5">
-    <script src="{% static 'js/player.js' %}?v=5" defer></script>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=9">
+    <link rel="stylesheet" href="{% static 'css/music.css' %}?v=7">
+    <script src="{% static 'js/player.js' %}?v=7" defer></script>
     <script src="{% static 'js/main.js' %}?v=1" defer></script>
     <script src="{% static 'js/form-ui.js' %}?v=3" defer></script>
 </head>
@@ -23,27 +23,30 @@
 
             <nav class="side-nav" aria-label="Основная навигация">
                 <a class="side-link {% if request.resolver_match.view_name == 'feed:feed' %}is-active{% endif %}" href="{% url 'feed:feed' %}">
-                    <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10H4V10"></path><path d="M9 20v-7h6v7"></path></svg><span>Лента</span>
+                    <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-6.5 8.5 6.5v9.5a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1z"></path><path d="M9 20.5v-7h6v7"></path><path d="m3.5 10 2.2 1.7"></path></svg><span>Лента</span>
                 </a>
-                <a class="side-link {% if request.resolver_match.app_name == 'music' %}is-active{% endif %}" href="{% url 'music:library' %}">
-                    <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg><span>Музыка</span>
+                <a class="side-link {% if request.resolver_match.app_name == 'music' and request.resolver_match.view_name != 'music:playlists' and request.resolver_match.view_name != 'music:playlist_create' and request.resolver_match.view_name != 'music:playlist_detail' and request.resolver_match.view_name != 'music:playlist_edit' and request.resolver_match.view_name != 'music:playlist_delete' and request.resolver_match.view_name != 'music:playlist_toggle_saved' and request.resolver_match.view_name != 'music:playlist_add_track' and request.resolver_match.view_name != 'music:playlist_remove_track' and request.resolver_match.view_name != 'music:playlist_move_track' and request.resolver_match.view_name != 'music:collaborative_playlist_create' and request.resolver_match.view_name != 'music:collaborative_playlist_detail' and request.resolver_match.view_name != 'music:collaborative_playlist_remove_track' and request.resolver_match.view_name != 'music:collaborative_playlist_leave' and request.resolver_match.view_name != 'music:collaborative_playlist_delete' %}is-active{% endif %}" href="{% url 'music:library' %}">
+                    <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 18V5l10-2v13"></path><path d="M10 8.5 20 6"></path><ellipse cx="6.5" cy="18.5" rx="3.5" ry="2.5"></ellipse><ellipse cx="16.5" cy="16.5" rx="3.5" ry="2.5"></ellipse></svg><span>Музыка</span>
+                </a>
+                <a class="side-link {% if request.resolver_match.view_name == 'music:playlists' or request.resolver_match.view_name == 'music:playlist_create' or request.resolver_match.view_name == 'music:playlist_detail' or request.resolver_match.view_name == 'music:playlist_edit' or request.resolver_match.view_name == 'music:playlist_delete' or request.resolver_match.view_name == 'music:playlist_toggle_saved' or request.resolver_match.view_name == 'music:playlist_add_track' or request.resolver_match.view_name == 'music:playlist_remove_track' or request.resolver_match.view_name == 'music:playlist_move_track' or request.resolver_match.view_name == 'music:collaborative_playlist_create' or request.resolver_match.view_name == 'music:collaborative_playlist_detail' or request.resolver_match.view_name == 'music:collaborative_playlist_remove_track' or request.resolver_match.view_name == 'music:collaborative_playlist_leave' or request.resolver_match.view_name == 'music:collaborative_playlist_delete' %}is-active{% endif %}" href="{% url 'music:playlists' %}">
+                    <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h11.5M4 10h11.5M4 14.5h7"></path><path d="M16 13v6.2a2.3 2.3 0 1 1-1.6-2.2V11l5-1v6.2a2.3 2.3 0 1 1-1.6-2.2V9.5"></path></svg><span>Плейлисты</span>
                 </a>
                 {% if user.is_authenticated %}
                     <a class="side-link {% if request.resolver_match.view_name == 'accounts:user_directory' %}is-active{% endif %}" href="{% url 'accounts:user_directory' %}">
-                        <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3 20v-1a6 6 0 0 1 12 0v1M17 8a3 3 0 0 1 0 6m1 2a5 5 0 0 1 3 4"></path></svg><span>Добавить друзей</span>
+                        <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3.5 20v-1a5.5 5.5 0 0 1 11 0v1z"></path><path d="M17 8a3 3 0 0 1 0 5.8M18 16a5 5 0 0 1 2.5 4"></path></svg><span>Добавить друзей</span>
                     </a>
                     <a class="side-link {% if request.resolver_match.view_name == 'feed:post_create' %}is-active{% endif %}" href="{% url 'feed:post_create' %}">
-                        <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span>Создать пост</span>
+                        <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"></rect><path d="M12 7.5v9M7.5 12h9"></path></svg><span>Создать пост</span>
                     </a>
                     <a class="side-link {% if request.resolver_match.view_name == 'accounts:profile' %}is-active{% endif %}" href="{% url 'accounts:profile' user.username %}">
-                        <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 21a7 7 0 0 1 14 0"></path></svg><span>Профиль</span>
+                        <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M4.5 20a7.5 7.5 0 0 1 15 0"></path><path d="M5.2 20h13.6"></path></svg><span>Профиль</span>
                     </a>
                 {% else %}
                     <a class="side-link {% if request.resolver_match.view_name == 'accounts:login' %}is-active{% endif %}" href="{% url 'accounts:login' %}">
-                        <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5m5 5H3m9-9h8v18h-8"></path></svg><span>Войти</span>
+                        <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 7 19 12l-5 5M19 12H8"></path><path d="M12 4H5.5A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20H12"></path></svg><span>Войти</span>
                     </a>
                     <a class="side-link {% if request.resolver_match.view_name == 'accounts:register' %}is-active{% endif %}" href="{% url 'accounts:register' %}">
-                        <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span>Регистрация</span>
+                        <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 20v-1a5.5 5.5 0 0 1 11 0v1zM18 8v7M14.5 11.5h7"></path></svg><span>Регистрация</span>
                     </a>
                 {% endif %}
             </nav>

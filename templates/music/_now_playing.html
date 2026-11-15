@@ -1,35 +1,83 @@
 <section class="now-playing-card" data-now-playing-card data-endpoint="{{ endpoint }}" aria-live="polite">
-    <div class="music-section-heading">
-        <div><span class="eyebrow">МУЗЫКА</span><h2>Сейчас слушает</h2></div>
-        <span class="now-playing-indicator{% if snapshot.is_playing %} is-playing{% endif %}" data-now-indicator aria-hidden="true"></span>
-    </div>
+    <header class="now-playing-heading">
+        <div>
+            <span class="eyebrow">МУЗЫКА В МОМЕНТЕ</span>
+            <h2>Сейчас слушает</h2>
+        </div>
+        <span class="now-playing-indicator{% if snapshot.is_playing %} is-playing{% endif %}" data-now-indicator aria-label="{% if snapshot.is_playing %}Воспроизведение{% else %}Пауза{% endif %}">
+            <i></i><i></i><i></i>
+        </span>
+    </header>
     {% if snapshot.visible %}
-        <div data-now-details {% if not snapshot.track %}hidden{% endif %}>
-            <strong class="now-playing-title" data-now-title>{{ snapshot.track.title }}</strong>
-            <span class="now-playing-artist" data-now-artist>{{ snapshot.track.artist }}</span>
-            <span class="now-playing-source" data-now-source>
-                {% if source.url %}<a href="{{ source.url }}">{{ source.label }}</a>{% elif source %}{{ source.label }}{% endif %}
-            </span>
-            <div class="now-playing-progress">
-                <span data-now-current>{{ snapshot.position_label }}</span>
-                <span class="now-playing-progress-track"><i data-now-progress style="width: {{ snapshot.progress_percent }}%"></i></span>
-                <span data-now-duration>{{ snapshot.duration_label }}</span>
+        <div class="now-playing-current" data-now-details{% if not snapshot.track %} hidden{% endif %}>
+            <div class="now-playing-cover{% if snapshot.track.album.cover %} has-cover{% endif %}" data-now-cover-wrap aria-hidden="true">
+                <img data-now-cover{% if snapshot.track.album.cover %} src="{{ snapshot.track.album.cover.url }}"{% else %} hidden{% endif %} alt="">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M9 18V5l11-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg>
+            </div>
+            <div class="now-playing-copy">
+                <span class="now-playing-status{% if snapshot.is_playing %} is-playing{% endif %}" data-now-status>
+                    <i aria-hidden="true"></i>
+                    <span data-now-status-label>{% if snapshot.track %}{% if snapshot.is_playing %}Слушает сейчас{% else %}На паузе{% endif %}{% elif snapshot.last_seen_minutes %}Был(а) в сети {{ snapshot.last_seen_minutes }} мин. назад{% else %}Сейчас не слушает{% endif %}</span>
+                </span>
+                <strong class="now-playing-title" data-now-title>{{ snapshot.track.title }}</strong>
+                <span class="now-playing-artist" data-now-artist>{{ snapshot.track.artist }}</span>
+                <span class="now-playing-source" data-now-source>
+                    {% if source.url %}<a href="{{ source.url }}">{{ source.label }}</a>{% elif source %}{{ source.label }}{% endif %}
+                </span>
+                <div class="now-playing-progress">
+                    <span data-now-current>{{ snapshot.position_label }}</span>
+                    <span class="now-playing-progress-track" role="progressbar" aria-label="Позиция в треке" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ snapshot.progress_percent }}">
+                        <i data-now-progress style="width: {{ snapshot.progress_percent }}%"></i>
+                    </span>
+                    <span data-now-duration>{{ snapshot.duration_label }}</span>
+                </div>
             </div>
         </div>
-        <p class="now-playing-status" data-now-status>
-            {% if snapshot.track %}{% if snapshot.is_playing %}Слушает сейчас{% else %}Пауза{% endif %}
+        <p class="now-playing-status now-playing-status--empty" data-now-empty-status{% if snapshot.track %} hidden{% endif %}>
+            {% if snapshot.track %}{% if snapshot.is_playing %}Слушает сейчас{% else %}На паузе{% endif %}
             {% elif snapshot.last_seen_minutes %}Был(а) в сети {{ snapshot.last_seen_minutes }} мин. назад
             {% else %}Сейчас не слушает{% endif %}
         </p>
-        <p class="now-playing-listeners" data-host-listener-count {% if not snapshot.track %}hidden{% endif %}>С вами слушают: {{ snapshot.listener_count|default:0 }}</p>
-        {% if can_join and snapshot.track and snapshot.is_playing %}
-        <form method="post" action="{% url 'music:listen_along_join' profile_user.username %}" data-listen-along-join data-host-name="{{ profile_user.username }}">
-            {% csrf_token %}
-            <button class="button button--small" type="submit">Слушать вместе</button>
-        </form>
+        <p class="now-playing-listeners" data-host-listener-count{% if not snapshot.track %} hidden{% endif %}>С вами слушают: {{ snapshot.listener_count|default:0 }}</p>
+        {% if is_other_profile and snapshot.visible %}
+            {% if is_joined %}
+                <div class="now-playing-session-state is-connected">
+                    <span><i aria-hidden="true"></i> Вы слушаете вместе</span>
+                    <form method="post" action="{% url 'music:listen_along_leave' %}" data-listen-along-leave>
+                        {% csrf_token %}
+                        <button class="button button--outline button--small" type="submit">Отключиться</button>
+                    </form>
+                </div>
+            {% elif can_join %}
+                <form
+                    method="post"
+                    action="{% url 'music:listen_along_join' profile_user.username %}"
+                    data-listen-along-join
+                    data-host-name="{{ profile_user.username }}"
+                    data-host-is-playing="{{ snapshot.is_playing|yesno:'true,false' }}"
+                    data-track-id="{{ snapshot.track.pk }}"
+                    data-track-url="{{ snapshot.track.audio_file.url }}"
+                    data-track-title="{{ snapshot.track.title }}"
+                    data-track-artist="{{ snapshot.track.artist }}"
+                    data-track-cover="{% if snapshot.track.album.cover %}{{ snapshot.track.album.cover.url }}{% endif %}"
+                    data-playlist-id="{{ snapshot.playlist.pk|default:'' }}">
+                    {% csrf_token %}
+                    <button class="button now-playing-join-button" type="submit">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14l11-7z"></path><path d="M4 8v8"></path></svg>
+                        Слушать вместе
+                        <span>Синхронно с @{{ profile_user.username }}</span>
+                    </button>
+                </form>
+            {% else %}
+                <button class="button now-playing-join-button" type="button" disabled>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14l11-7z"></path><path d="M4 8v8"></path></svg>
+                    Слушать вместе
+                    <span>{% if snapshot.track %}Сеанс сейчас недоступен{% else %}Нет активного трека{% endif %}</span>
+                </button>
+            {% endif %}
         {% endif %}
     {% else %}
-        <p class="now-playing-status" data-now-status>Пользователь скрыл эту информацию.</p>
+        <p class="now-playing-status now-playing-status--empty" data-now-status data-now-empty-status>Пользователь скрыл эту информацию.</p>
         <div data-now-details hidden></div>
     {% endif %}
 </section>

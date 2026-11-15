@@ -907,14 +907,20 @@ body {
 .side-link.is-active { color: white; background: rgb(242 13 99 / 14%); }
 
 .side-icon {
-    display: grid;
-    width: 22px;
-    place-items: center;
+    display: block;
+    width: 21px;
+    height: 21px;
+    flex: 0 0 21px;
     color: #aba3ad;
-    font-size: 19px;
-    line-height: 1;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.65;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: color .18s ease, transform .18s ease;
 }
 
+.side-link:hover .side-icon { color: #e7d8ff; transform: translateY(-1px); }
 .side-link.is-active .side-icon { color: white; }
 .sidebar-divider { height: 1px; margin: 20px 4px 18px; background: var(--line); }
 
@@ -1281,7 +1287,7 @@ body {
     .sidebar-logout { display: none; }
     .side-nav { display: flex; width: 100%; align-items: center; justify-content: space-around; gap: 4px; margin: 0; }
     .side-link { min-width: 0; min-height: 45px; flex: 1 1 0; flex-direction: column; justify-content: center; gap: 1px; padding: 2px 3px; border-radius: 7px; font-size: 8px; }
-    .side-icon { height: 22px; font-size: 17px; }
+    .side-icon { width: 21px; height: 21px; flex-basis: 21px; }
     .side-link > span:last-child { max-width: 100%; text-align: center; line-height: 1.1; }
     .workspace { min-height: 100vh; }
     .topbar { height: 55px; padding: 0 14px; }
