@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Радио · #{{ tag.name }}{% endblock %}
+{% block content %}
+<div class="music-library music-radio-page" data-music-radio data-radio-endpoint="{% url 'music:radio_tracks_api' %}?tag={{ tag.slug|urlencode }}">
+    <header class="music-heading">
+        <div><span class="eyebrow">РАДИО ПО ТЕГУ</span><h1>#{{ tag.name }}</h1><p>Случайные треки с этим тегом</p></div>
+        <a class="button button--outline button--small" href="{{ tag.get_absolute_url }}">Список треков</a>
+    </header>
+    <button class="button" type="button" data-radio-start>Слушать радио</button>
+    <p class="music-radio-status" data-radio-status role="status" aria-live="polite">Нажми, чтобы начать воспроизведение</p>
+</div>
+{% endblock %}

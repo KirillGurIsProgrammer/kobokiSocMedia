@@ -156,6 +156,7 @@ class MusicTests(TestCase):
                 "artist_0": "",
                 "title_1": "Правленое название",
                 "artist_1": "",
+                "tags_0": "#Synth, #Ночь",
                 "audio_files": [
                     SimpleUploadedFile("02. Сцена - Ночь (Official Video).mp3", b"x"),
                     SimpleUploadedFile("Только_Название.ogg", b"y"),
@@ -168,8 +169,25 @@ class MusicTests(TestCase):
         self.assertEqual(len(uploaded), 2)
         first = Track.objects.get(owner=self.alice, title="Ночь")
         self.assertEqual(first.artist, "Сцена")
+        self.assertSetEqual(set(first.tags.values_list("name", flat=True)), {"synth", "ночь"})
         second = Track.objects.get(owner=self.alice, title="Правленое название")
         self.assertEqual(second.artist, "")
+
+    def test_track_tags_are_updated_when_track_is_edited(self):
+        self.client.login(username="alice", password="pass12345")
+        response = self.client.post(
+            reverse("music:track_edit", args=[self.track.pk]),
+            {"title": self.track.title, "artist": self.track.artist, "album": "", "tags": "#JAZZ, #Ночь"},
+        )
+
+        self.assertRedirects(response, self.track.get_absolute_url())
+        self.assertSetEqual(set(self.track.tags.values_list("name", flat=True)), {"jazz", "ночь"})
+
+    def test_track_tags_are_limited_and_owner_checked(self):
+        with self.assertRaises(ValidationError):
+            services.set_track_tags(self.alice, self.track, [f"tag{index}" for index in range(11)])
+        with self.assertRaises(PermissionDenied):
+            services.set_track_tags(self.bob, self.track, ["jazz"])
 
     def test_like_toggles_and_keeps_one_user_track_pair(self):
         liked, count = services.toggle_like(self.bob, self.track)
@@ -252,7 +270,6 @@ class MusicTests(TestCase):
         favorite_artist_track.artist = "Любимая группа"
         favorite_artist_track.save(update_fields=("artist",))
         popular_track = self._track(self.bob, "Популярный трек")
-        fallback_track = self._track(self.bob, "Свежий трек")
         Like.objects.create(user=self.alice, track=self.track)
         Like.objects.create(user=self.bob, track=popular_track)
 
@@ -263,8 +280,111 @@ class MusicTests(TestCase):
         self.assertNotIn(self.track.pk, recommended_ids)
         self.assertNotIn(self.alice.tracks.first().pk, recommended_ids)
         self.assertEqual(len(recommended_ids), len(set(recommended_ids)))
-        self.assertIn(popular_track.pk, recommended_ids)
-        self.assertIn(fallback_track.pk, recommended_ids)
+        self.assertNotIn(popular_track.pk, recommended_ids)
+        self.assertEqual(recommendations[0].recommendation_reason, "Тот же исполнитель: Любимая группа")
+
+    def test_tag_match_ranks_above_artist_match_and_fewer_likes_rank_first(self):
+        services.set_track_tags(self.alice, self.track, ["#Электро"])
+        Like.objects.create(user=self.alice, track=self.track)
+        tag_match = self._track(self.bob, "По тегу")
+        services.set_track_tags(self.bob, tag_match, ["электро"])
+        artist_owner = get_user_model().objects.create_user(username="artist-owner")
+        artist_match = self._track(artist_owner, "По исполнителю")
+        artist_match.artist = self.track.artist
+        artist_match.save(update_fields=("artist",))
+        popular_tag_match = self._track(self.bob, "Популярный по тегу")
+        services.set_track_tags(self.bob, popular_tag_match, ["электро"])
+        liker = get_user_model().objects.create_user(username="liker")
+        Like.objects.create(user=liker, track=popular_tag_match)
+
+        recommendations = services.get_recommendations(self.alice, limit=10)
+
+        self.assertEqual(recommendations[0], tag_match)
+        self.assertEqual(recommendations[1], popular_tag_match)
+        self.assertEqual(recommendations[0].recommendation_reason, "Совпадает: электро")
+        self.assertEqual(recommendations[2].recommendation_reason, f"Тот же исполнитель: {self.track.artist}")
+
+    def test_recommendations_fallback_to_low_like_tracks_without_history(self):
+        low_likes = self._track(self.bob, "Редкий")
+        high_likes = self._track(self.bob, "Популярный")
+        Like.objects.create(user=self.bob, track=high_likes)
+
+        recommendations = services.get_recommendations(self.alice, limit=10)
+
+        self.assertEqual(recommendations[0], low_likes)
+        self.assertEqual(recommendations[0].recommendation_reason, "Новая загрузка")
+
+    def test_recommendations_use_playlists_when_user_has_no_likes(self):
+        self.track.artist = "Любимый исполнитель"
+        self.track.save(update_fields=("artist",))
+        playlist = self._playlist(self.alice)
+        services.add_track_to_playlist(self.alice, playlist, self.track)
+        candidate = self._track(self.bob, "Из похожего плейлиста")
+        candidate.artist = self.track.artist
+        candidate.save(update_fields=("artist",))
+
+        recommendations = services.get_recommendations(self.alice, limit=10)
+
+        self.assertIn(candidate, recommendations)
+
+    def test_recommendations_limit_authors_and_consecutive_runs(self):
+        services.set_track_tags(self.alice, self.track, ["техно"])
+        Like.objects.create(user=self.alice, track=self.track)
+        for index in range(5):
+            track = self._track(self.bob, f"Bob {index}")
+            services.set_track_tags(self.bob, track, ["техно"])
+        for index in range(5):
+            track = self._track(self.alice, f"Alice {index}")
+            track.owner = self.bob
+            track.save(update_fields=("owner",))
+            services.set_track_tags(self.bob, track, ["техно"])
+        other = get_user_model().objects.create_user(username="other")
+        for index in range(4):
+            track = self._track(other, f"Other {index}")
+            services.set_track_tags(other, track, ["техно"])
+
+        recommendations = services.get_recommendations(self.alice, limit=20)
+
+        owner_ids = [track.owner_id for track in recommendations]
+        self.assertLessEqual(max(owner_ids.count(owner_id) for owner_id in set(owner_ids)), 3)
+        for index in range(2, len(owner_ids)):
+            self.assertFalse(owner_ids[index] == owner_ids[index - 1] == owner_ids[index - 2])
+
+    def test_tag_normalization_and_limit(self):
+        self.assertEqual(
+            services.normalize_tag_names(" #JAZZ, jazz, #Ночь "),
+            ["jazz", "ночь"],
+        )
+        with self.assertRaises(ValidationError):
+            services.normalize_tag_names("x")
+        with self.assertRaises(ValidationError):
+            services.normalize_tag_names("a" * 31)
+        with self.assertRaises(ValidationError):
+            services.normalize_tag_names([f"tag{i:02}" for i in range(11)])
+
+    def test_track_tag_page_and_radio_api(self):
+        services.set_track_tags(self.alice, self.track, ["#Дорога"])
+        tag = self.track.tags.get()
+        endpoint = reverse("music:radio_tracks_api")
+        anonymous_response = self.client.get(endpoint, {"tag": tag.slug})
+        self.assertEqual(anonymous_response.status_code, 302)
+
+        self.client.login(username="alice", password="pass12345")
+        page = self.client.get(tag.get_absolute_url())
+        self.assertContains(page, "#дорога")
+        radio_page = self.client.get(reverse("music:radio", args=[tag.slug]))
+        self.assertContains(radio_page, "Слушать радио")
+
+        for index in range(11):
+            track = self._track(self.bob, f"Radio {index}")
+            services.set_track_tags(self.bob, track, ["дорога"])
+        first_batch = self.client.get(endpoint, {"tag": tag.slug}).json()["tracks"]
+        second_batch = self.client.get(endpoint, {"tag": tag.slug}).json()["tracks"]
+        first_ids = {track["id"] for track in first_batch}
+        second_ids = {track["id"] for track in second_batch}
+        self.assertEqual(len(first_batch), 10)
+        self.assertEqual(len(second_batch), 2)
+        self.assertFalse(first_ids.intersection(second_ids))
 
     def test_now_playing_position_is_calculated_and_capped(self):
         state = NowPlaying.objects.create(

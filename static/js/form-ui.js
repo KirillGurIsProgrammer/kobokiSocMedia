@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
 
-    function addField(container, labelText, name, value, index) {
+    function addField(container, labelText, name, value, index, listId = "") {
         const label = document.createElement("label");
         label.className = "track-upload-field";
         label.append(document.createTextNode(labelText));
@@ -40,6 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
         field.name = `${name}_${index}`;
         field.value = value;
         field.autocomplete = "off";
+        if (listId) field.setAttribute("list", listId);
         label.append(field);
         container.append(label);
     }
@@ -66,6 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
             fields.className = "track-upload-fields";
             addField(fields, "Название", "title", parsed.title, index);
             addField(fields, "Исполнитель", "artist", parsed.artist, index);
+            addField(fields, "Теги", "tags", "", index, "music-tag-suggestions");
             row.append(heading, fields);
             list.append(row);
         });

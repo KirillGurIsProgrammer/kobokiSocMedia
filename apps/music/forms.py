@@ -2,6 +2,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from apps.core.validators import validate_audio
+from . import services
 from .models import Album, MusicSettings, Playlist, Track
 
 
@@ -51,14 +52,27 @@ class TrackUploadForm(forms.Form):
 
 
 class TrackForm(forms.ModelForm):
+    tags = forms.CharField(
+        label="Теги",
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "list": "music-tag-suggestions",
+                "placeholder": "напр. джаз, вечер",
+                "autocomplete": "off",
+            }
+        ),
+    )
+
     class Meta:
         model = Track
-        fields = ["title", "artist", "album", "audio_file"]
+        fields = ["title", "artist", "album", "audio_file", "tags"]
         labels = {
             "title": "Название трека",
             "artist": "Исполнитель",
             "album": "Альбом",
             "audio_file": "Аудиофайл",
+            "tags": "Теги",
         }
 
     def __init__(self, *args, user=None, **kwargs):
@@ -68,6 +82,15 @@ class TrackForm(forms.ModelForm):
             Album.objects.filter(owner=user) if user else Album.objects.none()
         )
         self.fields["album"].empty_label = "Без альбома"
+        if self.instance.pk:
+            self.initial["tags"] = ", ".join(
+                self.instance.track_tags.select_related("tag")
+                .order_by("tag__name")
+                .values_list("tag__name", flat=True)
+            )
+
+    def clean_tags(self):
+        return services.normalize_tag_names(self.cleaned_data["tags"])
 
 
 class AlbumForm(forms.ModelForm):

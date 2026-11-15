@@ -27,6 +27,13 @@
                     {{ form.album.label_tag }}{{ form.album }}{{ form.album.errors }}
                 </div>
                 <div class="track-field">
+                    {{ form.tags.label_tag }}{{ form.tags }}{{ form.tags.errors }}
+                    <datalist id="music-tag-suggestions">
+                        {% for tag_name in tag_suggestions %}<option value="{{ tag_name }}">{% endfor %}
+                    </datalist>
+                    <p class="file-picker-hint">Разделяй теги запятыми, до 10 тегов</p>
+                </div>
+                <div class="track-field">
                     {{ form.audio_file.label_tag }}
                     <div class="file-picker">
                         {{ form.audio_file }}
@@ -43,6 +50,9 @@
                 <div class="track-field">
                     {{ form.album.label_tag }}{{ form.album }}{{ form.album.errors }}
                 </div>
+                <datalist id="music-tag-suggestions">
+                    {% for tag_name in tag_suggestions %}<option value="{{ tag_name }}">{% endfor %}
+                </datalist>
                 <div class="track-field">
                     {{ form.audio_files.label_tag }}
                     <div class="file-picker">

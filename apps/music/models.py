@@ -9,6 +9,20 @@ from apps.core.validators import validate_audio, validate_image
 User = settings.AUTH_USER_MODEL
 
 
+class Tag(models.Model):
+    name = models.CharField("Название", max_length=30)
+    slug = models.SlugField("Слаг", max_length=80, unique=True, allow_unicode=True)
+
+    class Meta:
+        ordering = ["name", "pk"]
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse("music:tag_detail", args=[self.slug])
+
+
 class Album(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="albums")
     title = models.CharField("Title", max_length=100)
@@ -37,6 +51,7 @@ class Track(models.Model):
     audio_file = models.FileField(
         "Audio file", upload_to="tracks/", validators=[validate_audio]
     )
+    tags = models.ManyToManyField(Tag, through="TrackTag", related_name="tracks", blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -47,6 +62,19 @@ class Track(models.Model):
 
     def get_absolute_url(self):
         return reverse("music:track_detail", args=[self.pk])
+
+
+class TrackTag(models.Model):
+    track = models.ForeignKey(Track, on_delete=models.CASCADE, related_name="track_tags")
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name="track_tags")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("track", "tag"), name="unique_tag_per_track"),
+        ]
+
+    def __str__(self):
+        return f"{self.track}: {self.tag}"
 
 
 class Like(models.Model):

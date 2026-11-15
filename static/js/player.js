@@ -26,6 +26,10 @@
     let joinedHost = null;
     let syncInFlight = false;
     let toastTimer = 0;
+    let radioMode = null;
+    let radioLoading = false;
+    let radioGeneration = 0;
+    let radioStartOnLoad = false;
 
     const formatTime = (seconds) => {
         if (!Number.isFinite(seconds)) return "0:00";
@@ -142,7 +146,7 @@
         paintTrack(track);
         renderQueue();
         updateListenAlongControls();
-        if (shouldPlay) audio.play().catch(() => {});
+        if (shouldPlay) audio.play().catch(() => showToast("Нажмите «Воспроизвести», чтобы начать"));
         saveState();
         sendNowPlaying(!audio.paused);
     }
@@ -150,6 +154,63 @@
     function playIndex(index) {
         if (index < 0 || index >= queue.length) return;
         setTrack(queue[index], index, true);
+    }
+
+    function stopRadioMode() {
+        radioMode = null;
+        radioGeneration += 1;
+        radioLoading = false;
+        radioStartOnLoad = false;
+    }
+
+    async function loadRadioTracks(startWhenReady = false) {
+        if (!radioMode) return;
+        if (startWhenReady) radioStartOnLoad = true;
+        if (radioLoading) return;
+        radioLoading = true;
+        const generation = radioGeneration;
+        const currentMode = radioMode;
+        try {
+            const response = await fetch(currentMode.endpoint, {
+                credentials: "same-origin",
+                headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+            });
+            if (!response.ok) throw new Error("Не удалось загрузить радио");
+            const data = await response.json();
+            if (generation !== radioGeneration || currentMode !== radioMode) return;
+            const queuedIds = new Set(queue.map((track) => String(track.id)));
+            const added = (data.tracks || [])
+                .filter((track) => !queuedIds.has(String(track.id)))
+                .map((track) => ({ ...track, id: String(track.id), playlistId: "" }));
+            queue.push(...added);
+            renderQueue();
+            const status = document.querySelector("[data-radio-status]");
+            if (status) status.textContent = added.length
+                ? `В очереди треков: ${queue.length - Math.max(0, queueIndex + 1)}`
+                : "Новых треков с этим тегом пока нет";
+            if (radioStartOnLoad) {
+                radioStartOnLoad = false;
+                if (queueIndex + 1 < queue.length) {
+                    if (joinedHost) leaveListenAlong();
+                    playIndex(queueIndex + 1);
+                } else if (!added.length) {
+                    showToast("Новых треков для радио нет");
+                }
+            }
+        } catch (_) {
+            if (generation === radioGeneration) showToast("Не удалось загрузить треки радио");
+        } finally {
+            if (generation === radioGeneration) radioLoading = false;
+        }
+    }
+
+    function startRadio(endpoint) {
+        stopRadioMode();
+        radioMode = { endpoint };
+        queue = [];
+        queueIndex = -1;
+        renderQueue();
+        loadRadioTracks(true);
     }
 
     function updateListenAlongControls() {
@@ -300,6 +361,7 @@
     }
 
     function playFromButton(button) {
+        stopRadioMode();
         if (joinedHost) leaveListenAlong();
         const list = button.closest("[data-track-list]");
         queue = list ? Array.from(list.querySelectorAll("[data-track-play]"), trackFromButton) : [trackFromButton(button)];
@@ -327,6 +389,12 @@
     });
 
     document.addEventListener("click", (event) => {
+        const radioButton = event.target.closest("[data-radio-start]");
+        if (radioButton) {
+            const page = radioButton.closest("[data-music-radio]");
+            if (page?.dataset.radioEndpoint) startRadio(page.dataset.radioEndpoint);
+            return;
+        }
         const enqueueButton = event.target.closest("[data-enqueue-track]");
         if (enqueueButton) {
             const row = enqueueButton.closest("[data-track-id]");
@@ -359,6 +427,7 @@
         }
         const playlistButton = event.target.closest("[data-play-playlist]");
         if (playlistButton) {
+            stopRadioMode();
             if (joinedHost) leaveListenAlong();
             const playlistId = playlistButton.dataset.playlistId;
             const list = document.querySelector(`[data-playlist-track-list="${CSS.escape(playlistId)}"]`);
@@ -487,6 +556,7 @@
         duration.textContent = formatTime(audio.duration);
         if (Number.isFinite(audio.duration) && audio.duration > 0) seek.value = String(Math.round(audio.currentTime / audio.duration * 1000));
         saveState();
+        if (radioMode && queue.length - queueIndex <= 3) loadRadioTracks();
     });
     audio.addEventListener("loadedmetadata", () => {
         duration.textContent = formatTime(audio.duration);
@@ -497,7 +567,10 @@
             if (state.wasPlaying) audio.play().catch(() => {});
         }
     });
-    audio.addEventListener("ended", () => playIndex(queueIndex + 1));
+    audio.addEventListener("ended", () => {
+        if (queueIndex + 1 < queue.length) playIndex(queueIndex + 1);
+        else if (radioMode) loadRadioTracks(true);
+    });
     seek.addEventListener("input", () => {
         if (Number.isFinite(audio.duration)) audio.currentTime = Number(seek.value) / 1000 * audio.duration;
     });

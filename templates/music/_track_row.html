@@ -11,6 +11,8 @@
     <div class="music-track-copy">
         <a href="{{ track.get_absolute_url }}"><strong>{{ track.title }}</strong></a>
         <span>{{ track.artist }}{% if track.album %} · <a href="{{ track.album.get_absolute_url }}">{{ track.album.title }}</a>{% endif %}</span>
+        {% if track.recommendation_reason %}<small class="music-recommendation-reason">{{ track.recommendation_reason }}</small>{% endif %}
+        <span class="music-tag-list">{% for relation in track.track_tags.all %}<a class="music-tag-chip" href="{{ relation.tag.get_absolute_url }}">#{{ relation.tag.name }}</a>{% endfor %}</span>
     </div>
     <form class="music-like-form" method="post" action="{% url 'music:toggle_like' track.pk %}" data-like-form data-track-id="{{ track.pk }}">
         {% csrf_token %}

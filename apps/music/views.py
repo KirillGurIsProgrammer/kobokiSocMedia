@@ -9,7 +9,7 @@ import json
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from . import services
 from .forms import (
@@ -21,7 +21,7 @@ from .forms import (
     TrackForm,
     TrackUploadForm,
 )
-from .models import Album, PlaylistTrack, SavedPlaylist, Track
+from .models import Album, PlaylistTrack, SavedPlaylist, Tag, Track
 
 User = get_user_model()
 
@@ -70,13 +70,18 @@ def track_upload(request):
                 artist=data["artist"],
                 album=data["album"],
                 audio_file=data["audio_file"],
+                tags=data["tags"],
             )
             messages.success(request, "Трек загружен.")
             return redirect(track)
         return render(
             request,
             "music/track_form.html",
-            {"form": form, "legacy_upload": True},
+            {
+                "form": form,
+                "legacy_upload": True,
+                "tag_suggestions": Tag.objects.values_list("name", flat=True),
+            },
         )
 
     if request.method == "POST":
@@ -88,6 +93,18 @@ def track_upload(request):
                 parsed_artist, parsed_title = services.parse_track_filename(audio_file.name)
                 title = request.POST.get(f"title_{index}", "").strip() or parsed_title
                 artist = request.POST.get(f"artist_{index}", "").strip() or parsed_artist
+                try:
+                    tags = services.normalize_tag_names(request.POST.get(f"tags_{index}", ""))
+                except ValidationError as error:
+                    messages.error(request, "; ".join(error.messages))
+                    return render(
+                        request,
+                        "music/track_form.html",
+                        {
+                            "form": form,
+                            "tag_suggestions": Tag.objects.values_list("name", flat=True),
+                        },
+                    )
                 candidate = Track(
                     owner=request.user,
                     title=title,
@@ -99,23 +116,30 @@ def track_upload(request):
                     candidate.full_clean()
                 except ValidationError as error:
                     messages.error(request, "; ".join(error.messages))
-                    return render(request, "music/track_form.html", {"form": form})
-                uploads.append((title, artist, audio_file))
+                    return render(request, "music/track_form.html", {
+                        "form": form,
+                        "tag_suggestions": Tag.objects.values_list("name", flat=True),
+                    })
+                uploads.append((title, artist, audio_file, tags))
 
             with transaction.atomic():
-                for title, artist, audio_file in uploads:
+                for title, artist, audio_file, tags in uploads:
                     services.create_track(
                         request.user,
                         title=title,
                         artist=artist,
                         album=album,
                         audio_file=audio_file,
+                        tags=tags,
                     )
             messages.success(request, f"Загружено треков: {len(uploads)}.")
             return redirect("music:library")
     else:
         form = TrackUploadForm(user=request.user)
-    return render(request, "music/track_form.html", {"form": form})
+    return render(request, "music/track_form.html", {
+        "form": form,
+        "tag_suggestions": Tag.objects.values_list("name", flat=True),
+    })
 
 
 @login_required
@@ -133,12 +157,17 @@ def track_edit(request, pk):
                 artist=data["artist"],
                 album=data["album"],
                 audio_file=data.get("audio_file"),
+                tags=data["tags"],
             )
             messages.success(request, "Изменения трека сохранены.")
             return redirect(track)
     else:
         form = TrackForm(instance=track, user=request.user)
-    return render(request, "music/track_form.html", {"form": form, "track": track})
+    return render(request, "music/track_form.html", {
+        "form": form,
+        "track": track,
+        "tag_suggestions": Tag.objects.values_list("name", flat=True),
+    })
 
 
 @login_required
@@ -290,6 +319,57 @@ def playlists(request):
 def liked_tracks(request):
     return render(request, "music/liked_tracks.html", {
         "tracks": services.list_liked_tracks(request.user),
+    })
+
+
+@login_required
+def tag_detail(request, slug):
+    tag = get_object_or_404(Tag, slug=slug)
+    tracks = services.with_like_data(
+        Track.objects.filter(tags=tag)
+        .select_related("owner", "album")
+        .order_by("-uploaded_at", "-pk"),
+        request.user,
+    )
+    return render(request, "music/tag_detail.html", {"tag": tag, "tracks": tracks})
+
+
+@login_required
+def radio(request, slug):
+    tag = get_object_or_404(Tag, slug=slug)
+    return render(request, "music/radio.html", {"tag": tag})
+
+
+@login_required
+@require_GET
+def radio_tracks_api(request):
+    slug = request.GET.get("tag", "").strip()
+    if not slug:
+        return JsonResponse({"error": "Укажите тег радио."}, status=400)
+    tag = get_object_or_404(Tag, slug=slug)
+    recent_by_tag = request.session.get("music_radio_recent", {})
+    if not isinstance(recent_by_tag, dict):
+        recent_by_tag = {}
+    recent_ids = recent_by_tag.get(tag.slug, [])
+    tracks = services.get_radio_tracks(request.user, tag, limit=10, exclude_ids=recent_ids)
+    recent_by_tag[tag.slug] = list(
+        dict.fromkeys([track.pk for track in tracks] + recent_ids)
+    )[:50]
+    request.session["music_radio_recent"] = recent_by_tag
+    return JsonResponse({
+        "tag": tag.slug,
+        "tracks": [
+            {
+                "id": track.pk,
+                "url": track.audio_file.url,
+                "title": track.title,
+                "artist": track.artist,
+                "cover": track.album.cover.url if track.album and track.album.cover else "",
+                "liked": track.liked_by_user,
+                "likeCount": track.like_count,
+            }
+            for track in tracks
+        ],
     })
 
 

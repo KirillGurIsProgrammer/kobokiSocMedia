@@ -1,10 +1,12 @@
 """Music business rules called by the views."""
 import os
+import random
 import re
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Exists, OuterRef, Q
+from django.utils.text import slugify
 from django.utils import timezone
 from datetime import timedelta
 
@@ -19,7 +21,9 @@ from .models import (
     PlaylistTrack,
     Review,
     SavedPlaylist,
+    Tag,
     Track,
+    TrackTag,
 )
 
 
@@ -55,12 +59,56 @@ def parse_track_filename(filename):
     return artist, title
 
 
+def normalize_tag_names(values):
+    """Normalize comma-separated tag names and enforce per-track limits."""
+    raw_names = values.split(",") if isinstance(values, str) else values or []
+    names = []
+    for raw_name in raw_names:
+        name = str(raw_name).replace("#", "").strip().casefold()
+        if not name:
+            continue
+        if not 2 <= len(name) <= 30:
+            raise ValidationError("Тег должен содержать от 2 до 30 символов.")
+        if name not in names:
+            names.append(name)
+    if len(names) > 10:
+        raise ValidationError("К одному треку можно добавить не больше 10 тегов.")
+    return names
+
+
+def _get_or_create_tag(name):
+    existing = Tag.objects.filter(name=name).first()
+    if existing:
+        return existing
+
+    base_slug = slugify(name, allow_unicode=True) or "tag"
+    slug = base_slug
+    suffix = 2
+    while Tag.objects.filter(slug=slug).exclude(name=name).exists():
+        slug = f"{base_slug}-{suffix}"
+        suffix += 1
+    tag, _ = Tag.objects.get_or_create(slug=slug, defaults={"name": name})
+    return tag
+
+
+def set_track_tags(user, track, names):
+    ensure_owner(user, track)
+    normalized = normalize_tag_names(names)
+    tags = [_get_or_create_tag(name) for name in normalized]
+    TrackTag.objects.filter(track=track).exclude(tag__in=tags).delete()
+    existing_ids = set(TrackTag.objects.filter(track=track).values_list("tag_id", flat=True))
+    TrackTag.objects.bulk_create(
+        [TrackTag(track=track, tag=tag) for tag in tags if tag.pk not in existing_ids]
+    )
+    return tags
+
+
 def with_like_data(queryset, user):
     likes_by_user = Like.objects.filter(track_id=OuterRef("pk"), user=user)
     return queryset.annotate(
         like_count=Count("likes", distinct=True),
         liked_by_user=Exists(likes_by_user),
-    )
+    ).prefetch_related("track_tags__tag")
 
 
 def search_tracks(owner, query="", *, user=None):
@@ -81,48 +129,103 @@ def get_discover_tracks(user, query=""):
 
 
 def get_recommendations(user, limit=20):
-    """Rank unseen tracks by liked artists, recent popularity, then recency."""
+    """Recommend tracks by shared tags and artists, with a low-like fallback."""
     if limit <= 0:
         return []
-    now = timezone.now()
-    liked_track_ids = Like.objects.filter(user=user).values_list("track_id", flat=True)
-    base = (
-        Track.objects.exclude(owner=user)
-        .exclude(pk__in=liked_track_ids)
-        .select_related("owner", "album")
-        .annotate(
-            recent_like_count=Count(
-                "likes",
-                filter=Q(likes__created_at__gte=now - timedelta(days=30)),
-                distinct=True,
-            )
+    liked = list(
+        Like.objects.filter(user=user)
+        .select_related("track")
+        .prefetch_related("track__track_tags__tag")
+    )
+    if liked:
+        taste_tracks = [like.track for like in liked]
+        excluded_ids = {like.track_id for like in liked}
+    else:
+        taste_ids = set(
+            NowPlaying.objects.filter(user=user).values_list("track_id", flat=True)
+        )
+        taste_ids.update(
+            PlaylistTrack.objects.filter(
+                Q(playlist__owner=user) | Q(playlist__saves__user=user)
+            ).values_list("track_id", flat=True)
+        )
+        taste_tracks = list(
+            Track.objects.filter(pk__in=taste_ids).prefetch_related("track_tags__tag")
+        )
+        excluded_ids = set()
+
+    artists = {track.artist for track in taste_tracks if track.artist}
+    tag_names = {}
+    tag_ids = set()
+    for track in taste_tracks:
+        for relation in track.track_tags.all():
+            tag_ids.add(relation.tag_id)
+            tag_names[relation.tag_id] = relation.tag.name
+
+    candidates = Track.objects.exclude(owner=user).exclude(pk__in=excluded_ids)
+    if artists or tag_ids:
+        candidate_filter = Q()
+        if artists:
+            candidate_filter |= Q(artist__in=artists)
+        if tag_ids:
+            candidate_filter |= Q(track_tags__tag_id__in=tag_ids)
+        candidates = candidates.filter(candidate_filter).distinct()
+
+    candidates = list(
+        candidates.select_related("owner", "album")
+        .prefetch_related("track_tags__tag")
+        .annotate(like_count=Count("likes", distinct=True))
+    )
+    ranked = []
+    for track in candidates:
+        matched_ids = tag_ids.intersection(
+            relation.tag_id for relation in track.track_tags.all()
+        )
+        track.recommendation_tag_count = len(matched_ids)
+        if matched_ids:
+            matched_name = tag_names[min(matched_ids)]
+            track.recommendation_reason = f"Совпадает: {matched_name}"
+        elif track.artist in artists:
+            track.recommendation_reason = f"Тот же исполнитель: {track.artist}"
+        else:
+            track.recommendation_reason = "Новая загрузка"
+        ranked.append(track)
+
+    random.shuffle(ranked)
+    ranked.sort(
+        key=lambda track: (
+            -track.recommendation_tag_count,
+            track.like_count,
         )
     )
-    liked_artists = Like.objects.filter(user=user).values_list("track__artist", flat=True).distinct()
-    selected = []
-    selected_ids = set()
 
-    artist_tracks = base.filter(artist__in=liked_artists).order_by(
-        "-recent_like_count", "-uploaded_at", "-pk"
-    )[:limit]
-    for track in artist_tracks:
-        selected.append(track)
-        selected_ids.add(track.pk)
+    result = []
+    author_counts = {}
+    last_author_id = None
+    author_streak = 0
+    while ranked and len(result) < limit:
+        for index, track in enumerate(ranked):
+            count = author_counts.get(track.owner_id, 0)
+            streak = author_streak + 1 if track.owner_id == last_author_id else 1
+            if count >= 3 or streak > 2:
+                continue
+            result.append(track)
+            author_counts[track.owner_id] = count + 1
+            author_streak = streak
+            last_author_id = track.owner_id
+            ranked.pop(index)
+            break
+        else:
+            break
+    return result
 
-    remaining = limit - len(selected)
-    if remaining:
-        popular_tracks = base.filter(recent_like_count__gt=0).exclude(pk__in=selected_ids).order_by(
-            "-recent_like_count", "-uploaded_at", "-pk"
-        )[:remaining]
-        for track in popular_tracks:
-            selected.append(track)
-            selected_ids.add(track.pk)
 
-    remaining = limit - len(selected)
-    if remaining:
-        recent_tracks = base.exclude(pk__in=selected_ids).order_by("-uploaded_at", "-pk")[:remaining]
-        selected.extend(recent_tracks)
-    return selected
+def get_radio_tracks(user, tag, *, limit=10, exclude_ids=()):
+    if limit <= 0:
+        return []
+    queryset = Track.objects.filter(tags=tag).exclude(pk__in=exclude_ids)
+    queryset = with_like_data(queryset.select_related("owner", "album"), user)
+    return list(queryset.order_by("?")[:limit])
 
 
 def toggle_like(user, track):
@@ -476,9 +579,10 @@ def delete_track(user, track):
     track.delete()
 
 
-def create_track(user, *, title, artist, album, audio_file):
+def create_track(user, *, title, artist, album, audio_file, tags=None):
     if album is not None:
         ensure_owner(user, album)
+    normalized_tags = normalize_tag_names(tags) if tags is not None else None
     track = Track(
         owner=user,
         title=title,
@@ -488,6 +592,8 @@ def create_track(user, *, title, artist, album, audio_file):
     )
     track.full_clean()
     track.save()
+    if normalized_tags is not None:
+        set_track_tags(user, track, normalized_tags)
     return track
 
 
@@ -498,11 +604,12 @@ def create_album(user, *, title, cover=None):
     return album
 
 
-def update_track(user, track, *, title, artist, album, audio_file=None):
+def update_track(user, track, *, title, artist, album, audio_file=None, tags=None):
     """Update a track after checking ownership and access to its album."""
     ensure_owner(user, track)
     if album is not None:
         ensure_owner(user, album)
+    normalized_tags = normalize_tag_names(tags) if tags is not None else None
 
     track.title = title
     track.artist = artist
@@ -518,6 +625,8 @@ def update_track(user, track, *, title, artist, album, audio_file=None):
         and previous_audio.name != track.audio_file.name
     ):
         previous_audio.delete(save=False)
+    if normalized_tags is not None:
+        set_track_tags(user, track, normalized_tags)
     return track
 
 

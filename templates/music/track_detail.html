@@ -10,6 +10,10 @@
   {% if track.album %}· Альбом: <a href="{{ track.album.get_absolute_url }}">{{ track.album.title }}</a>{% endif %}
 </p>
 
+<nav class="music-tag-list music-track-tags" aria-label="Теги трека">
+  {% for relation in track.track_tags.all %}<a class="music-tag-chip" href="{{ relation.tag.get_absolute_url }}">#{{ relation.tag.name }}</a>{% endfor %}
+</nav>
+
 <div data-track-list>{% include "music/_track_row.html" %}</div>
 
 <p class="player-nav">
