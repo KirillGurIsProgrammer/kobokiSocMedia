@@ -7,8 +7,8 @@
 <form method="post" enctype="multipart/form-data">
   {% csrf_token %}
   {{ form.as_p }}
-  <button type="submit">{% if album %}Сохранить{% else %}Создать альбом{% endif %}</button>
-  <a href="{% url 'music:library' %}">Отмена</a>
+  <button class="btn btn--primary" type="submit">{% if album %}Сохранить{% else %}Создать альбом{% endif %}</button>
+  <a class="btn btn--ghost" href="{% url 'music:library' %}">Отмена</a>
 </form>
  </div>
 {% endblock %}

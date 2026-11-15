@@ -9,7 +9,7 @@
       {% if user == comment.author or user == post.author %}
         <form method="post" action="{% url 'comments:delete' comment.id %}">
           {% csrf_token %}
-          <button type="submit">Удалить</button>
+          <button class="btn btn--danger" type="submit">Удалить</button>
         </form>
       {% endif %}
     </article>
@@ -19,8 +19,8 @@
   {% if user.is_authenticated %}
     <form method="post" action="{% url 'comments:add' post.id %}">
       {% csrf_token %}
-      <textarea name="text" maxlength="1000" required rows="2"></textarea>
-      <button type="submit">Добавить комментарий</button>
+      <textarea class="textarea" name="text" maxlength="1000" required rows="2"></textarea>
+      <button class="btn btn--primary" type="submit">Добавить комментарий</button>
     </form>
   {% endif %}
 </section>

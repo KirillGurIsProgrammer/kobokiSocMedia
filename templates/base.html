@@ -3,14 +3,17 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#0d0b10">
     <title>{% block title %}Koboki{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=6">
-    <link rel="stylesheet" href="{% static 'css/music.css' %}?v=3">
-    <script src="{% static 'js/player.js' %}?v=3" defer></script>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=8">
+    <link rel="stylesheet" href="{% static 'css/music.css' %}?v=5">
+    <script src="{% static 'js/player.js' %}?v=5" defer></script>
+    <script src="{% static 'js/main.js' %}?v=1" defer></script>
+    <script src="{% static 'js/form-ui.js' %}?v=3" defer></script>
 </head>
-<body{% if request.resolver_match.app_name == 'music' %} class="music-page"{% endif %}>
+<body{% if request.resolver_match.app_name == 'music' %} class="music-page"{% endif %}{% if request.resolver_match.view_name == 'accounts:login' or request.resolver_match.view_name == 'accounts:register' %} data-auth-page="true"{% endif %}>
+    <div class="page-transition-progress" data-page-progress aria-hidden="true"><span></span></div>
     <div class="app-shell">
         <aside class="sidebar">
             <a class="brand" href="{% url 'feed:feed' %}" aria-label="Koboki — лента">
@@ -64,11 +67,6 @@
                 </form>
             {% endif %}
 
-            <div class="sidebar-player">
-                <div class="player-cover" aria-hidden="true"><svg class="side-icon" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg></div>
-                <div class="player-track"><strong>Музыка</strong><small>Посты и плейлисты</small></div>
-                <span class="player-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-            </div>
         </aside>
 
         <div class="workspace">
@@ -88,7 +86,7 @@
             </header>
 
             <div class="page-grid">
-                <main class="site-main">
+                <main class="site-main" id="app-content" tabindex="-1">
                     {% if messages %}
                         <div class="message-list" role="status">
                             {% for message in messages %}

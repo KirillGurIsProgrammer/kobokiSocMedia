@@ -1,5 +1,5 @@
 <article class="playlist-card">
-    <a class="playlist-card-main" href="{{ playlist.get_absolute_url }}">
+    <a class="playlist-card-main" href="{% url 'music:playlist_detail' playlist.pk %}">
         {% if playlist.cover %}<img src="{{ playlist.cover.url }}" alt="Обложка плейлиста {{ playlist.title }}">
         {% else %}<span class="playlist-card-cover" aria-hidden="true">♫</span>{% endif %}
         <span class="playlist-card-copy"><strong>{{ playlist.title }}</strong><small>{{ playlist.owner.username }} · {{ playlist.track_count }} трек(ов)</small></span>

@@ -1,20 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
-    const input = document.querySelector(".track-form input[type='file']");
-    const picker = input?.closest(".file-picker");
-    const fileName = picker?.querySelector("[data-file-name]");
-
-    if (!input || !picker || !fileName) return;
-
-    const list = document.querySelector("[data-track-upload-list]");
-    if (!input.multiple || !list) {
-        input.addEventListener("change", () => {
-            const file = input.files?.[0];
-            fileName.textContent = file?.name || "Файл не выбран";
-            picker.classList.toggle("has-file", Boolean(file));
-        });
-        return;
-    }
-
+(() => {
     function parseFilename(filename) {
         let stem = filename.replace(/\.[^.]+$/, "").replace(/_/g, " ");
         stem = stem.replace(/\s*[([{][^\])}]*?(?:official\s+video|(?:\d+\s*)?kbps)[^\])}]*[)\]}]/gi, " ");
@@ -40,20 +24,43 @@ document.addEventListener("DOMContentLoaded", () => {
         field.name = `${name}_${index}`;
         field.value = value;
         field.autocomplete = "off";
+        field.className = "input";
         if (listId) field.setAttribute("list", listId);
         label.append(field);
         container.append(label);
     }
 
-    input.addEventListener("change", () => {
+    function initializeFileInputs() {
+        document.querySelectorAll(".track-form input[type='file']").forEach((input) => {
+            const picker = input.closest(".file-picker");
+            const fileName = picker?.querySelector("[data-file-name]");
+            if (!fileName) return;
+            const files = Array.from(input.files || []);
+            if (files.length) {
+                fileName.textContent = input.multiple ? `Выбрано файлов: ${files.length}` : files[0].name;
+                picker.classList.add("has-file");
+            }
+        });
+    }
+
+    document.addEventListener("change", (event) => {
+        const input = event.target.closest(".track-form input[type='file']");
+        if (!input) return;
+        const picker = input.closest(".file-picker");
+        const fileName = picker?.querySelector("[data-file-name]");
+        if (!picker || !fileName) return;
+
         const files = Array.from(input.files || []);
-        fileName.textContent = files.length
-            ? `Выбрано файлов: ${files.length}`
-            : "Файлы не выбраны";
+        const list = input.closest("form")?.querySelector("[data-track-upload-list]");
         picker.classList.toggle("has-file", files.length > 0);
+        if (!input.multiple || !list) {
+            fileName.textContent = files[0]?.name || "Файл не выбран";
+            return;
+        }
+
+        fileName.textContent = files.length ? `Выбрано файлов: ${files.length}` : "Файлы не выбраны";
         list.replaceChildren();
         list.hidden = files.length === 0;
-
         files.forEach((file, index) => {
             const parsed = parseFilename(file.name);
             const row = document.createElement("section");
@@ -72,4 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
             list.append(row);
         });
     });
-});
+
+    document.addEventListener("kobokiPageLoaded", initializeFileInputs);
+    initializeFileInputs();
+})();

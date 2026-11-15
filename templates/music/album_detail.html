@@ -16,7 +16,7 @@
   <form method="post" action="{% url 'music:album_delete' album.pk %}"
         onsubmit="return confirm('Удалить альбом? Треки останутся в библиотеке.')">
     {% csrf_token %}
-    <button type="submit">Удалить альбом</button>
+    <button class="btn btn--danger" type="submit">Удалить альбом</button>
   </form>
 {% endif %}
 
@@ -30,7 +30,7 @@
 </div>
 
 <h2>Отзывы</h2>
-<p>{% if rating %}Средняя оценка: ★ {{ rating }} / 5{% else %}Оценок пока нет.{% endif %}</p>
+{% if rating %}<p>Средняя оценка: ★ {{ rating }} / 5</p>{% endif %}
 
 {% for review in reviews %}
   <div class="review">
@@ -39,14 +39,14 @@
     <p>{{ review.text }}</p>
   </div>
 {% empty %}
-  <p>No reviews yet.</p>
+  <p>Отзывов пока нет.</p>
 {% endfor %}
 
 <h3>Оставить отзыв</h3>
 <form method="post" action="{% url 'music:album_review' album.pk %}">
   {% csrf_token %}
   {{ review_form.as_p }}
-  <button type="submit">Отправить</button>
+  <button class="btn btn--primary" type="submit">Отправить</button>
 </form>
  </div>
 {% endblock %}

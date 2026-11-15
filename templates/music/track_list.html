@@ -61,7 +61,7 @@
         <section class="music-section" id="recent">
             <div class="music-section-heading">
                 <h2>Недавно добавлено</h2>
-                <a class="music-section-link" href="#all-music">Показать все: Мои треки и альбомы</a>
+            <a class="music-section-link" href="#all-music">Показать все</a>
             </div>
             <div class="music-track-list" data-track-list>
                 {% for track in recent_tracks %}
@@ -77,7 +77,7 @@
             <section class="music-section">
                 <div class="music-section-heading"><h2>Мои треки и альбомы</h2></div>
                 {% if albums %}<div class="music-album-grid">
-                    {% for album in albums %}<a class="music-album-card" href="{{ album.get_absolute_url }}">
+                    {% for album in albums %}<a class="music-album-card" href="{% url 'music:album_detail' album.pk %}">
                         {% if album.cover %}<img src="{{ album.cover.url }}" alt="Обложка альбома {{ album.title }}">{% else %}<span class="music-album-placeholder" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M9 18V5l11-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg></span>{% endif %}
                         <strong>{{ album.title }}</strong><small>{{ album.track_count|default:album.tracks.count }} трек(ов)</small>
                     </a>{% endfor %}
@@ -92,7 +92,7 @@
         <section class="music-section" id="all-music">
             <div class="music-section-heading"><h2>Треки и альбомы {{ owner.username }}</h2></div>
             {% if albums %}<div class="music-album-grid">
-                {% for album in albums %}<a class="music-album-card" href="{{ album.get_absolute_url }}">
+                {% for album in albums %}<a class="music-album-card" href="{% url 'music:album_detail' album.pk %}">
                     {% if album.cover %}<img src="{{ album.cover.url }}" alt="Обложка альбома {{ album.title }}">{% else %}<span class="music-album-placeholder" aria-hidden="true">♫</span>{% endif %}
                     <strong>{{ album.title }}</strong><small>{{ album.tracks.count }} трек(ов)</small>
                 </a>{% endfor %}

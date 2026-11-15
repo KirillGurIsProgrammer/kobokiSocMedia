@@ -10,10 +10,7 @@
     <p class="form-help">Список собирается по кругу из лайков участников и обновляется при открытии или нажатии «Обновить».</p>
     <div class="music-track-list" data-track-list data-playlist-track-list="shared-{{ playlist.pk }}">
         {% for track in tracks %}
-        <article class="music-track-row" data-track-id="{{ track.pk }}" data-liked="{{ track.liked_by_user|yesno:'true,false' }}" data-like-count="{{ track.like_count }}">
-            <button class="music-track-play" type="button" data-track-play data-track-id="{{ track.pk }}" data-track-url="{{ track.audio_file.url }}" data-track-title="{{ track.title }}" data-track-artist="{{ track.artist }}" data-track-cover="{% if track.album and track.album.cover %}{{ track.album.cover.url }}{% endif %}" data-playlist-id="shared-{{ playlist.pk }}" data-track-tags="{% for relation in track.track_tags.all %}{{ relation.tag.name }}{% if not forloop.last %}|{% endif %}{% endfor %}" aria-label="Воспроизвести {{ track.title }}">▶</button>
-            <div class="music-track-copy"><a href="{{ track.get_absolute_url }}"><strong>{{ track.title }}</strong></a><span>{{ track.artist }} · Принёс(ла): @{{ track.brought_by.username }}</span><span class="music-tag-list">{% for relation in track.track_tags.all %}<a class="music-tag-chip" href="{{ relation.tag.get_absolute_url }}">#{{ relation.tag.name }}</a>{% endfor %}</span></div>
-        </article>
+        {% with playlist=None %}{% include "music/_track_row.html" %}{% endwith %}
         {% empty %}<div class="music-empty"><strong>Пока нет треков</strong><p>Поставьте лайк трекам — они появятся после обновления подборки.</p></div>{% endfor %}
     </div>
     {% if tracks %}<button class="button button--small" type="button" data-play-playlist data-playlist-id="shared-{{ playlist.pk }}">Слушать плейлист</button>{% endif %}

@@ -1,6 +1,10 @@
 {% load music_tags %}
 {% listen_along_session as listen_session %}
-<section class="music-player" data-music-player data-now-playing-url="{% url 'music:now_playing_update' %}" role="region" aria-label="Музыкальный плеер">
+<section class="music-player" data-music-player
+    data-now-playing-url="{% url 'music:now_playing_update' %}"
+    data-track-url-template="{% url 'music:track_detail' 0 %}"
+    data-artist-url-template="{% url 'accounts:profile' '__username__' %}"
+    role="region" aria-label="Музыкальный плеер">
     <audio id="music-audio" preload="metadata"></audio>
     <div class="music-toast" data-music-toast role="status" aria-live="polite" hidden></div>
     <div class="listen-along-banner" data-listen-along-banner
@@ -10,39 +14,61 @@
             data-leave-url="{% url 'music:listen_along_leave' %}"
         {% endif %}>
         <span>Вы слушаете вместе с <strong data-listen-along-host>{% if listen_session %}@{{ listen_session.host.username }}{% endif %}</strong></span>
+        <small data-host-listener-count hidden>С вами слушают: 0</small>
         <form method="post" action="{% url 'music:listen_along_leave' %}" data-listen-along-leave>
-            {% csrf_token %}<button type="submit">Выйти</button>
+            {% csrf_token %}<button type="submit" aria-label="Выйти из совместного прослушивания" title="Выйти"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button>
         </form>
     </div>
     <p class="listen-along-notice" data-listen-along-notice hidden></p>
+
     <div class="music-player-track">
-        <div class="music-player-cover" data-player-cover aria-hidden="true"><svg class="player-note-icon" viewBox="0 0 24 24" fill="none"><path d="M9 18V5l11-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg></div>
+        <button class="music-player-cover" type="button" data-player-cover data-player-expand disabled aria-label="Развернуть плеер" title="Развернуть плеер">
+            <svg class="player-note-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18V5l11-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg>
+        </button>
         <div class="music-player-copy">
-            <strong data-player-title>Выберите трек</strong>
-            <span data-player-artist>Музыка Koboki</span>
+            <a data-player-title>Выберите трек</a>
+            <a data-player-artist></a>
         </div>
         <form class="music-player-like-form" method="post" action="{% url 'music:toggle_like' 0 %}" data-player-like-form data-like-form data-track-id="">
             {% csrf_token %}
-            <button class="music-player-icon" type="submit" data-player-like aria-label="Нравится" title="Нравится" disabled aria-pressed="false"><svg class="player-heart-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.5 8.7c0 4.2-8.5 10-8.5 10s-8.5-5.8-8.5-10a4.5 4.5 0 0 1 8.5-2.2 4.5 4.5 0 0 1 8.5 2.2Z"></path></svg></button>
-            <span class="music-player-like-count" data-like-count></span>
+            <button class="music-player-icon" type="submit" data-player-like aria-label="Нравится" title="Нравится" disabled aria-pressed="false">
+                <svg class="player-heart-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.5 8.7c0 4.2-8.5 10-8.5 10s-8.5-5.8-8.5-10a4.5 4.5 0 0 1 8.5-2.2 4.5 4.5 0 0 1 8.5 2.2Z"></path></svg>
+            </button>
         </form>
     </div>
+
     <div class="player-expanded-meta" data-player-expanded-meta>
-        <div class="player-expanded-cover" data-expanded-cover aria-hidden="true"></div>
-        <div><p class="player-expanded-eyebrow">СЕЙЧАС ИГРАЕТ</p><h2 data-expanded-title>Выберите трек</h2><p data-expanded-artist>Музыка Koboki</p><div class="music-tag-list" data-expanded-tags></div></div>
+        <div class="player-expanded-cover" data-expanded-cover aria-hidden="true">
+            <svg class="player-note-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18V5l11-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg>
+        </div>
+        <div class="player-expanded-copy">
+            <p class="player-expanded-eyebrow">Сейчас играет</p>
+            <h2><a data-expanded-title>Выберите трек</a></h2>
+            <p><a data-expanded-artist></a></p>
+            <div class="music-tag-list" data-expanded-tags></div>
+            <form class="music-player-like-form" method="post" action="{% url 'music:toggle_like' 0 %}" data-player-like-form data-like-form data-track-id="">
+                {% csrf_token %}
+                <button class="music-player-icon" type="submit" data-player-like aria-label="Нравится" title="Нравится" disabled aria-pressed="false">
+                    <svg class="player-heart-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.5 8.7c0 4.2-8.5 10-8.5 10s-8.5-5.8-8.5-10a4.5 4.5 0 0 1 8.5-2.2 4.5 4.5 0 0 1 8.5 2.2Z"></path></svg>
+                </button>
+            </form>
+        </div>
     </div>
+
     <div class="player-expanded-actions">
-        <button type="button" class="music-player-icon" data-player-expand aria-pressed="false">Развернуть</button>
-        <button type="button" class="music-player-icon" data-player-native-fullscreen>Во весь экран</button>
-        <button type="button" class="music-player-icon" data-sound-toggle aria-expanded="false" aria-controls="player-sound-panel">Звук</button>
-        <button type="button" class="music-player-icon" data-player-close hidden>Закрыть</button>
+        <button type="button" class="music-player-icon" data-player-close hidden aria-label="Свернуть плеер" title="Свернуть плеер">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 14 6-6 6 6"></path></svg>
+        </button>
     </div>
 
     <div class="music-player-controls">
         <div class="music-player-buttons">
-            <button type="button" data-player-previous aria-label="Предыдущий трек" title="Предыдущий трек"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5v14M19 6l-9 6 9 6V6Z"></path></svg></button>
-            <button class="music-player-play" type="button" data-player-toggle aria-label="Воспроизвести" title="Воспроизвести"><svg class="icon-play" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m8 5 12 7-12 7V5Z" fill="currentColor" stroke="none"></path></svg><svg class="icon-pause" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 5v14M16 5v14"></path></svg></button>
-            <button type="button" data-player-next aria-label="Следующий трек" title="Следующий трек"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 5v14M5 6l9 6-9 6V6Z"></path></svg></button>
+            <button class="music-player-icon" type="button" data-player-previous aria-label="Предыдущий трек" title="Предыдущий трек" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5v14M19 6l-9 6 9 6V6Z"></path></svg></button>
+            <button class="music-player-play" type="button" data-player-toggle aria-label="Воспроизвести" title="Воспроизвести" disabled>
+                <svg class="icon-play" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m8 5 12 7-12 7V5Z" fill="currentColor" stroke="none"></path></svg>
+                <svg class="icon-pause" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 5v14M16 5v14"></path></svg>
+            </button>
+            <button class="music-player-icon" type="button" data-player-next aria-label="Следующий трек" title="Следующий трек" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 5v14M5 6l9 6-9 6V6Z"></path></svg></button>
         </div>
         <div class="music-player-timeline">
             <span data-player-current>0:00</span>
@@ -52,23 +78,32 @@
     </div>
 
     <div class="music-player-extras">
+        <button class="music-player-icon music-player-queue-toggle" type="button" data-queue-toggle aria-expanded="false" aria-controls="music-queue" aria-label="Открыть очередь" title="Очередь" disabled>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"></path><path d="m17 15 4 3-4 3v-6Z" fill="currentColor" stroke="none"></path></svg>
+        </button>
         <label class="music-volume" aria-label="Громкость">
             <svg class="player-volume-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 10v4h4l5 4V6l-5 4H4Z"></path><path d="M17 9a5 5 0 0 1 0 6m3-9a9 9 0 0 1 0 12"></path></svg>
-            <input type="range" min="0" max="1" step="0.01" value="0.8" data-player-volume>
+            <input type="range" min="0" max="1" step="0.01" value="0.8" data-player-volume aria-label="Громкость">
         </label>
-        <button class="music-player-icon" type="button" data-queue-toggle aria-expanded="false" aria-controls="music-queue">Очередь</button>
-        <span class="music-player-listener-count" data-host-listener-count hidden>С вами слушают: 0</span>
+        <button class="music-player-icon music-player-sound-toggle" type="button" data-sound-toggle aria-expanded="false" aria-controls="player-sound-panel" aria-label="Настройки звука" title="Настройки звука" disabled>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h9m4 0h3M4 17h3m4 0h9"></path><circle cx="15" cy="7" r="2"></circle><circle cx="9" cy="17" r="2"></circle></svg>
+        </button>
+        <button class="music-player-icon music-player-expand" type="button" data-player-expand aria-pressed="false" aria-label="Развернуть плеер" title="Развернуть плеер" disabled>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"></path></svg>
+        </button>
     </div>
-    <div class="music-queue" id="music-queue" data-player-queue hidden>
-        <h2>Очередь воспроизведения</h2>
+
+    <aside class="music-queue" id="music-queue" data-player-queue hidden aria-label="Очередь воспроизведения">
+        <div class="music-queue-heading"><h2>Очередь</h2><button class="music-player-icon" type="button" data-queue-close aria-label="Закрыть очередь" title="Закрыть очередь"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button></div>
         <ol data-queue-items></ol>
-    </div>
+    </aside>
+
     <section class="player-sound-panel" id="player-sound-panel" data-sound-panel hidden aria-label="Настройки звука">
-        <div class="player-sound-heading"><h2>Эквалайзер</h2><label><input type="checkbox" data-eq-enabled checked> Включён</label><select data-eq-preset aria-label="Пресет эквалайзера"><option value="custom">Свои настройки</option><option value="flat">Плоский</option><option value="bass">Бас</option><option value="vocal">Вокал</option><option value="night">Ночь</option></select><button type="button" data-eq-reset>Сбросить</button></div>
+        <div class="player-sound-heading"><h2>Эквалайзер</h2><label><input type="checkbox" data-eq-enabled checked> Включён</label><select class="select" data-eq-preset aria-label="Пресет эквалайзера"><option value="custom">Свои настройки</option><option value="flat">Плоский</option><option value="bass">Бас</option><option value="vocal">Вокал</option><option value="night">Ночь</option></select><button class="music-player-icon" type="button" data-eq-reset aria-label="Сбросить эквалайзер" title="Сбросить эквалайзер"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2 5m-2-11v6h-6"></path></svg></button></div>
         <div class="eq-sliders">
             <label>31 Гц<input data-eq-band="0" type="range" min="-12" max="12" value="0"></label><label>62 Гц<input data-eq-band="1" type="range" min="-12" max="12" value="0"></label><label>125 Гц<input data-eq-band="2" type="range" min="-12" max="12" value="0"></label><label>250 Гц<input data-eq-band="3" type="range" min="-12" max="12" value="0"></label><label>500 Гц<input data-eq-band="4" type="range" min="-12" max="12" value="0"></label><label>1 кГц<input data-eq-band="5" type="range" min="-12" max="12" value="0"></label><label>2 кГц<input data-eq-band="6" type="range" min="-12" max="12" value="0"></label><label>4 кГц<input data-eq-band="7" type="range" min="-12" max="12" value="0"></label><label>8 кГц<input data-eq-band="8" type="range" min="-12" max="12" value="0"></label><label>16 кГц<input data-eq-band="9" type="range" min="-12" max="12" value="0"></label>
         </div>
-        <div class="player-compressor-heading"><h2>Компрессор</h2><select data-compressor-preset aria-label="Пресет компрессора"><option value="off">Выкл</option><option value="soft">Мягкий</option><option value="night">Ночной</option><option value="custom">Свои настройки</option></select><output data-compressor-reduction>Сжатие: 0 дБ</output></div>
+        <div class="player-compressor-heading"><h2>Компрессор</h2><select class="select" data-compressor-preset aria-label="Пресет компрессора"><option value="off">Выкл</option><option value="soft">Мягкий</option><option value="night">Ночной</option><option value="custom">Свои настройки</option></select><output data-compressor-reduction>Сжатие: 0 дБ</output></div>
         <div class="compressor-controls">
             <label>Порог<input data-compressor="threshold" type="range" min="-60" max="0" value="-24"><output></output></label><label>Колено<input data-compressor="knee" type="range" min="0" max="40" value="20"><output></output></label><label>Ratio<input data-compressor="ratio" type="range" min="1" max="20" step="0.1" value="4"><output></output></label><label>Атака<input data-compressor="attack" type="range" min="0" max="1" step="0.01" value="0.003"><output></output></label><label>Релиз<input data-compressor="release" type="range" min="0.01" max="1" step="0.01" value="0.25"><output></output></label><label>Компенсация<input data-compressor="makeup" type="range" min="0" max="12" step="0.1" value="0"><output></output></label>
         </div>

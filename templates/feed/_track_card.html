@@ -24,6 +24,7 @@
             </span>
             <button class="post-track-play" type="button"
                 data-track-play
+                data-play-track="{{ track.pk }}"
                 data-track-id="{{ track.pk }}"
                 data-track-url="{{ track.audio_file.url }}"
                 data-track-title="{{ track.title }}"

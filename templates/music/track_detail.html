@@ -1,53 +1,144 @@
 {% extends "base.html" %}
-{% load static %}
 {% block title %}{{ track.title }}{% endblock %}
 
 {% block content %}
-<div class="music-library">
-<h1>{{ track.artist }} — {{ track.title }}</h1>
-<p>
-  Исполнитель: <a href="{% url 'accounts:profile' track.owner.username %}">{{ track.owner.username }}</a>
-  {% if track.album %}· Альбом: <a href="{{ track.album.get_absolute_url }}">{{ track.album.title }}</a>{% endif %}
-</p>
+<article class="track-detail-page" data-track-row data-track-id="{{ track.pk }}" data-liked="{{ track.liked_by_user|yesno:'true,false' }}" data-like-count="{{ track.like_count|default:0 }}">
+    <section class="track-detail-hero{% if track.album.cover %} has-cover{% endif %}"{% if track.album.cover %} style="--track-cover: url('{{ track.album.cover.url }}')"{% endif %}>
+        <div class="track-detail-artwork" aria-label="Обложка трека">
+            {% if track.album.cover %}
+                <img src="{{ track.album.cover.url }}" alt="Обложка трека «{{ track.title }}»">
+            {% else %}
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18V5l11-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg>
+            {% endif %}
+        </div>
 
-<nav class="music-tag-list music-track-tags" aria-label="Теги трека">
-  {% for relation in track.track_tags.all %}<a class="music-tag-chip" href="{{ relation.tag.get_absolute_url }}">#{{ relation.tag.name }}</a>{% endfor %}
-</nav>
+        <div class="track-detail-copy">
+            <p class="track-detail-kicker">Трек</p>
+            <h1>{{ track.title }}</h1>
+            <p class="track-detail-artist">
+                {% if track.artist %}
+                    {% if track.artist == track.owner.username %}<a href="{% url 'accounts:profile' track.owner.username %}">{{ track.artist }}</a>{% else %}{{ track.artist }}{% endif %}
+                {% else %}
+                    <span>Исполнитель не указан</span>
+                {% endif %}
+            </p>
+            <p class="track-detail-uploader">Загрузил: <a href="{% url 'accounts:profile' track.owner.username %}">@{{ track.owner.username }}</a></p>
+            {% if track.album %}<p class="track-detail-album">Альбом: <a href="{% url 'music:album_detail' track.album.pk %}">{{ track.album.title }}</a></p>{% endif %}
+            {% if track.track_tags.all %}
+                <nav class="music-tag-list music-track-tags" aria-label="Теги трека">
+                    {% for relation in track.track_tags.all %}<a class="music-tag-chip" href="{% url 'music:tag_detail' relation.tag.slug %}">#{{ relation.tag.name }}</a>{% endfor %}
+                </nav>
+            {% endif %}
+        </div>
+    </section>
 
-<div data-track-list>{% include "music/_track_row.html" %}</div>
+    <div class="track-detail-actions">
+        <button class="track-detail-play" type="button"
+            data-track-play data-play-track="{{ track.pk }}"
+            data-track-id="{{ track.pk }}"
+            data-track-url="{{ track.audio_file.url }}"
+            data-track-page-url="{% url 'music:track_detail' track.pk %}"
+            {% if track.artist == track.owner.username %}data-track-artist-url="{% url 'accounts:profile' track.owner.username %}"{% endif %}
+            data-track-title="{{ track.title }}"
+            data-track-artist="{{ track.artist|default:'Исполнитель не указан' }}"
+            data-track-cover="{% if track.album.cover %}{{ track.album.cover.url }}{% endif %}"
+            data-track-tags="{% for relation in track.track_tags.all %}{{ relation.tag.name }}{% if not forloop.last %}|{% endif %}{% endfor %}"
+            aria-label="Воспроизвести: {{ track.title }}">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m8 5 12 7-12 7V5Z" fill="currentColor" stroke="none"></path></svg>
+            <span>Слушать</span>
+        </button>
 
-<p class="player-nav">
-  {% if prev_track %}<a href="{{ prev_track.get_absolute_url }}">← Предыдущий</a>{% endif %}
-  {% if next_track %}<a href="{{ next_track.get_absolute_url }}">Следующий →</a>{% endif %}
-</p>
+        <form class="track-detail-like" method="post" action="{% url 'music:toggle_like' track.pk %}" data-like-form data-track-id="{{ track.pk }}">
+            {% csrf_token %}
+            <button class="btn btn--ghost track-detail-like-button{% if track.liked_by_user %} is-liked{% endif %}" type="submit" aria-pressed="{{ track.liked_by_user|yesno:'true,false' }}" aria-label="{% if track.liked_by_user %}Убрать из понравившихся{% else %}Нравится{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.5 8.7c0 4.2-8.5 10-8.5 10s-8.5-5.8-8.5-10a4.5 4.5 0 0 1 8.5-2.2 4.5 4.5 0 0 1 8.5 2.2Z"></path></svg>
+                <span data-like-label>{% if track.liked_by_user %}Убрать лайк{% else %}Нравится{% endif %}</span>
+                <span class="track-detail-like-count" data-like-count>{{ track.like_count|default:0 }}</span>
+            </button>
+        </form>
 
-{% if is_owner %}
-  <p><a href="{% url 'music:track_edit' track.pk %}">Изменить трек</a></p>
-  <form method="post" action="{% url 'music:track_delete' track.pk %}"
-        onsubmit="return confirm('Удалить этот трек?')">
-    {% csrf_token %}
-    <button type="submit">Удалить трек</button>
-  </form>
-{% endif %}
+        <details class="track-detail-menu">
+            <summary class="btn btn--ghost" aria-label="Другие действия с треком" title="Другие действия">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg>
+            </summary>
+            <div class="track-detail-menu-panel">
+                <p class="track-detail-menu-label">Добавить в плейлист</p>
+                <a href="{% url 'music:playlists' %}">Открыть плейлисты</a>
+                <a href="{% url 'music:playlist_create' %}">Создать плейлист</a>
+                <button type="button" data-enqueue-track>Добавить в очередь</button>
+                <button type="button" data-copy-track-link data-track-url="{% url 'music:track_detail' track.pk %}">Копировать ссылку</button>
+                {% if is_owner %}
+                    <span class="track-detail-menu-divider" aria-hidden="true"></span>
+                    <a href="{% url 'music:track_edit' track.pk %}">Изменить трек</a>
+                    <button class="is-danger" type="button" data-confirm-open="delete-track-dialog">Удалить трек</button>
+                {% endif %}
+            </div>
+        </details>
+    </div>
 
-<h2>Отзывы</h2>
-<p>{% if rating %}Средняя оценка: ★ {{ rating }} / 5{% else %}Оценок пока нет.{% endif %}</p>
+    <section class="track-reviews glass-card" aria-labelledby="track-reviews-heading">
+        <header class="track-reviews-heading">
+            <h2 id="track-reviews-heading">Отзывы</h2>
+            {% with review_count=reviews|length %}
+                {% if review_count %}<p><strong>{{ rating|floatformat:1 }}</strong><span>из 5</span><span class="review-count">Отзывов: {{ review_count }}</span></p>{% endif %}
+            {% endwith %}
+        </header>
 
-{% for review in reviews %}
-  <div class="review">
-    <b>{{ review.author.username }}</b> — {{ review.rating }}/5
-    <small>{{ review.created_at|date:"d.m.Y H:i" }}</small>
-    <p>{{ review.text }}</p>
-  </div>
-{% empty %}
-  <p>No reviews yet.</p>
-{% endfor %}
+        {% with review_count=reviews|length %}
+            {% if review_count %}
+                <div class="track-review-list">
+                    {% for review in reviews %}
+                        <article class="track-review">
+                            <span class="track-review-avatar" aria-hidden="true">{{ review.author.username|first|upper }}</span>
+                            <div class="track-review-body">
+                                <div class="track-review-meta">
+                                    <a href="{% url 'accounts:profile' review.author.username %}">{{ review.author.username }}</a>
+                                    <span class="track-review-stars" aria-label="Оценка {{ review.rating }} из 5">{% for star in "12345" %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</span>
+                                    <time datetime="{{ review.created_at|date:'c' }}">{{ review.created_at|date:"d.m.Y H:i" }}</time>
+                                </div>
+                                {% if review.text %}<p>{{ review.text }}</p>{% endif %}
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="track-reviews-empty">Отзывов пока нет. Будьте первым.</p>
+            {% endif %}
+        {% endwith %}
 
-<h3>Оставить отзыв</h3>
-<form method="post" action="{% url 'music:track_review' track.pk %}">
-  {% csrf_token %}
-  {{ review_form.as_p }}
-  <button type="submit">Отправить</button>
-</form>
- </div>
+        <form class="track-review-form" method="post" action="{% url 'music:track_review' track.pk %}" data-review-form>
+            {% csrf_token %}
+            <fieldset class="track-rating-field">
+                <legend>Ваша оценка</legend>
+                <div class="track-rating-stars" role="radiogroup" aria-label="Оценка от 1 до 5">
+                    {% for value in "54321" %}
+                        <input id="id_rating_{{ value }}" type="radio" name="{{ review_form.rating.html_name }}" value="{{ value }}" required{% if review_form.rating.value|stringformat:'s' == value %} checked{% endif %}>
+                        <label for="id_rating_{{ value }}" aria-label="{{ value }} из 5">★</label>
+                    {% endfor %}
+                </div>
+                {% for error in review_form.rating.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+            </fieldset>
+            <div class="track-review-text-field">
+                <label for="id_text">Отзыв</label>
+                <textarea class="textarea" id="id_text" name="{{ review_form.text.html_name }}" maxlength="1000" rows="3" placeholder="Поделитесь впечатлением">{{ review_form.text.value|default:'' }}</textarea>
+                {% for error in review_form.text.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+            </div>
+            <button class="btn btn--primary" type="submit" data-review-submit disabled>Отправить</button>
+        </form>
+    </section>
+
+    {% if is_owner %}
+        <dialog class="confirm-dialog" id="delete-track-dialog" aria-labelledby="delete-track-heading">
+            <form method="post" action="{% url 'music:track_delete' track.pk %}">
+                {% csrf_token %}
+                <h2 id="delete-track-heading">Удалить трек?</h2>
+                <p>Это действие нельзя отменить</p>
+                <div class="confirm-dialog-actions">
+                    <button class="btn btn--ghost" type="button" data-confirm-close>Отмена</button>
+                    <button class="btn btn--danger" type="submit">Удалить</button>
+                </div>
+            </form>
+        </dialog>
+    {% endif %}
+</article>
 {% endblock %}

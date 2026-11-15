@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load static %}
 {% block title %}{% if track %}Изменить трек{% else %}Загрузить трек{% endif %}{% endblock %}
 
 {% block content %}
@@ -76,5 +75,4 @@
         </div>
     </form>
 </section>
-<script src="{% static 'js/form-ui.js' %}?v=2" defer></script>
 {% endblock %}

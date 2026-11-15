@@ -39,9 +39,9 @@
                 {% with track=entry.track playlist=playlist %}{% include "music/_track_row.html" %}{% endwith %}
                 {% if is_owner %}
                 <div class="playlist-track-actions">
-                    <form method="post" action="{% url 'music:playlist_move_track' playlist.pk entry.track.pk 'up' %}">{% csrf_token %}<button type="submit" aria-label="Переместить вверх" title="Переместить вверх">↑</button></form>
-                    <form method="post" action="{% url 'music:playlist_move_track' playlist.pk entry.track.pk 'down' %}">{% csrf_token %}<button type="submit" aria-label="Переместить вниз" title="Переместить вниз">↓</button></form>
-                    <form method="post" action="{% url 'music:playlist_remove_track' playlist.pk entry.track.pk %}" onsubmit="return confirm('Убрать трек из плейлиста?')">{% csrf_token %}<button type="submit" aria-label="Убрать из плейлиста" title="Убрать из плейлиста">×</button></form>
+                    <form method="post" action="{% url 'music:playlist_move_track' playlist.pk entry.track.pk 'up' %}">{% csrf_token %}<button class="btn btn--ghost" type="submit" aria-label="Переместить вверх" title="Переместить вверх">↑</button></form>
+                    <form method="post" action="{% url 'music:playlist_move_track' playlist.pk entry.track.pk 'down' %}">{% csrf_token %}<button class="btn btn--ghost" type="submit" aria-label="Переместить вниз" title="Переместить вниз">↓</button></form>
+                    <form method="post" action="{% url 'music:playlist_remove_track' playlist.pk entry.track.pk %}" onsubmit="return confirm('Убрать трек из плейлиста?')">{% csrf_token %}<button class="btn btn--danger" type="submit" aria-label="Убрать из плейлиста" title="Убрать из плейлиста">×</button></form>
                 </div>
                 {% endif %}
             </div>
