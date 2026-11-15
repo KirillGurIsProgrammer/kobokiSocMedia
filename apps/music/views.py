@@ -71,6 +71,7 @@ def track_upload(request):
                 artist=data["artist"],
                 album=data["album"],
                 audio_file=data["audio_file"],
+                cover=data.get("cover"),
                 tags=data["tags"],
             )
             messages.success(request, "Трек загружен.")
@@ -112,6 +113,7 @@ def track_upload(request):
                     artist=artist,
                     album=album,
                     audio_file=audio_file,
+                    cover=request.FILES.get(f"cover_{index}"),
                 )
                 try:
                     candidate.full_clean()
@@ -121,16 +123,17 @@ def track_upload(request):
                         "form": form,
                         "tag_suggestions": Tag.objects.values_list("name", flat=True),
                     })
-                uploads.append((title, artist, audio_file, tags))
+                uploads.append((title, artist, audio_file, candidate.cover, tags))
 
             with transaction.atomic():
-                for title, artist, audio_file, tags in uploads:
+                for title, artist, audio_file, cover, tags in uploads:
                     services.create_track(
                         request.user,
                         title=title,
                         artist=artist,
                         album=album,
                         audio_file=audio_file,
+                        cover=cover,
                         tags=tags,
                     )
             messages.success(request, f"Загружено треков: {len(uploads)}.")
@@ -158,6 +161,7 @@ def track_edit(request, pk):
                 artist=data["artist"],
                 album=data["album"],
                 audio_file=data.get("audio_file"),
+                cover=data.get("cover"),
                 tags=data["tags"],
             )
             messages.success(request, "Изменения трека сохранены.")
@@ -489,7 +493,11 @@ def radio_tracks_api(request):
                 "url": track.audio_file.url,
                 "title": track.title,
                 "artist": track.artist,
-                "cover": track.album.cover.url if track.album and track.album.cover else "",
+                "cover": (
+                    track.cover.url if track.cover
+                    else track.album.cover.url if track.album and track.album.cover
+                    else ""
+                ),
                 "liked": track.liked_by_user,
                 "likeCount": track.like_count,
             }
@@ -680,6 +688,7 @@ def now_playing_detail(request, username):
             "audio_url": track.audio_file.url,
             "cover_url": (
                 playlist.cover.url if playlist and playlist.cover
+                else track.cover.url if track.cover
                 else track.album.cover.url if track.album_id and track.album.cover
                 else None
             ),

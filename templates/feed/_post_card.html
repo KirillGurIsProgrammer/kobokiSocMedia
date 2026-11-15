@@ -24,7 +24,9 @@
         <p>{{ post.text|linebreaksbr }}</p>
         {% if post.track %}
             <div class="post-track">
-                <span class="post-track-icon" aria-hidden="true">♫</span>
+                <span class="post-track-icon" aria-hidden="true">
+                    {% if post.track.cover %}<img src="{{ post.track.cover.url }}" alt="">{% elif post.track.album and post.track.album.cover %}<img src="{{ post.track.album.cover.url }}" alt="">{% else %}♫{% endif %}
+                </span>
                 <span class="post-track-info">
                     <strong>{{ post.track.title }}</strong>
                     <span>{{ post.track.artist }}</span>
@@ -35,7 +37,7 @@
                     data-track-url="{{ post.track.audio_file.url }}"
                     data-track-title="{{ post.track.title }}"
                     data-track-artist="{{ post.track.artist }}"
-                    data-track-cover="{% if post.track.album and post.track.album.cover %}{{ post.track.album.cover.url }}{% endif %}"
+                    data-track-cover="{% if post.track.cover %}{{ post.track.cover.url }}{% elif post.track.album and post.track.album.cover %}{{ post.track.album.cover.url }}{% endif %}"
                     aria-label="Воспроизвести: {{ post.track.title }} — {{ post.track.artist }}">▶</button>
                 <a class="post-track-link" href="{{ post.track.get_absolute_url }}">
                     Открыть трек <span aria-hidden="true">↗</span>

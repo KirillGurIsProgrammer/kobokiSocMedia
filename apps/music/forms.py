@@ -2,7 +2,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 
-from apps.core.validators import validate_audio
+from apps.core.validators import validate_audio, validate_image
 from . import services
 from .models import Album, MusicSettings, Playlist, Track
 from apps.accounts.models import Follow
@@ -54,6 +54,17 @@ class TrackUploadForm(forms.Form):
                 ) from error
         return files
 
+    def clean(self):
+        cleaned_data = super().clean()
+        for key, image in self.files.items():
+            if not key.startswith("cover_"):
+                continue
+            try:
+                validate_image(image)
+            except ValidationError as error:
+                self.add_error(None, f"{image.name}: {'; '.join(error.messages)}")
+        return cleaned_data
+
 
 class TrackForm(forms.ModelForm):
     tags = forms.CharField(
@@ -70,14 +81,16 @@ class TrackForm(forms.ModelForm):
 
     class Meta:
         model = Track
-        fields = ["title", "artist", "album", "audio_file", "tags"]
+        fields = ["title", "artist", "album", "audio_file", "cover", "tags"]
         labels = {
             "title": "Название трека",
             "artist": "Исполнитель",
             "album": "Альбом",
             "audio_file": "Аудиофайл",
+            "cover": "Обложка трека",
             "tags": "Теги",
         }
+        widgets = {"cover": forms.FileInput(attrs={"accept": ".jpg,.jpeg,.png,.webp"})}
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)

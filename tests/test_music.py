@@ -1,8 +1,10 @@
 import shutil
 import tempfile
 import json
+from io import BytesIO
 from datetime import timedelta
 
+from PIL import Image
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
@@ -114,6 +116,11 @@ class MusicTests(TestCase):
             audio_file=SimpleUploadedFile(f"{title}.mp3", b"x"),
         )
 
+    def _cover_file(self, name="cover.png"):
+        image_bytes = BytesIO()
+        Image.new("RGB", (1, 1), color="purple").save(image_bytes, format="PNG")
+        return SimpleUploadedFile(name, image_bytes.getvalue(), content_type="image/png")
+
     def setUp(self):
         User = get_user_model()
         self.alice = User.objects.create_user(username="alice", password="pass12345")
@@ -157,6 +164,7 @@ class MusicTests(TestCase):
                 "title_1": "Правленое название",
                 "artist_1": "",
                 "tags_0": "#Synth, #Ночь",
+                "cover_0": self._cover_file("track-cover.png"),
                 "audio_files": [
                     SimpleUploadedFile("02. Сцена - Ночь (Official Video).mp3", b"x"),
                     SimpleUploadedFile("Только_Название.ogg", b"y"),
@@ -169,9 +177,29 @@ class MusicTests(TestCase):
         self.assertEqual(len(uploaded), 2)
         first = Track.objects.get(owner=self.alice, title="Ночь")
         self.assertEqual(first.artist, "Сцена")
+        self.assertTrue(first.cover.name.startswith("track_covers/"))
         self.assertSetEqual(set(first.tags.values_list("name", flat=True)), {"synth", "ночь"})
         second = Track.objects.get(owner=self.alice, title="Правленое название")
         self.assertEqual(second.artist, "")
+        detail = self.client.get(first.get_absolute_url())
+        self.assertContains(detail, f'data-track-cover="{first.cover.url}"')
+
+    def test_track_edit_accepts_individual_cover(self):
+        self.client.force_login(self.alice)
+        response = self.client.post(
+            reverse("music:track_edit", args=[self.track.pk]),
+            {
+                "title": self.track.title,
+                "artist": self.track.artist,
+                "album": "",
+                "tags": "",
+                "cover": self._cover_file(),
+            },
+        )
+
+        self.assertRedirects(response, self.track.get_absolute_url())
+        self.track.refresh_from_db()
+        self.assertTrue(self.track.cover.name.startswith("track_covers/"))
 
     def test_track_tags_are_updated_when_track_is_edited(self):
         self.client.login(username="alice", password="pass12345")

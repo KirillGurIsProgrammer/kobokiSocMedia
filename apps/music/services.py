@@ -669,7 +669,7 @@ def delete_track(user, track):
     track.delete()
 
 
-def create_track(user, *, title, artist, album, audio_file, tags=None):
+def create_track(user, *, title, artist, album, audio_file, cover=None, tags=None):
     if album is not None:
         ensure_owner(user, album)
     normalized_tags = normalize_tag_names(tags) if tags is not None else None
@@ -679,6 +679,7 @@ def create_track(user, *, title, artist, album, audio_file, tags=None):
         artist=artist,
         album=album,
         audio_file=audio_file,
+        cover=cover,
     )
     track.full_clean()
     track.save()
@@ -694,7 +695,7 @@ def create_album(user, *, title, cover=None):
     return album
 
 
-def update_track(user, track, *, title, artist, album, audio_file=None, tags=None):
+def update_track(user, track, *, title, artist, album, audio_file=None, cover=None, tags=None):
     """Update a track after checking ownership and access to its album."""
     ensure_owner(user, track)
     if album is not None:
@@ -705,8 +706,11 @@ def update_track(user, track, *, title, artist, album, audio_file=None, tags=Non
     track.artist = artist
     track.album = album
     previous_audio = track.audio_file
+    previous_cover = track.cover
     if audio_file is not None:
         track.audio_file = audio_file
+    if cover is not None:
+        track.cover = cover
     track.full_clean()
     track.save()
     if (
@@ -715,6 +719,12 @@ def update_track(user, track, *, title, artist, album, audio_file=None, tags=Non
         and previous_audio.name != track.audio_file.name
     ):
         previous_audio.delete(save=False)
+    if (
+        cover is not None
+        and previous_cover
+        and previous_cover.name != track.cover.name
+    ):
+        previous_cover.delete(save=False)
     if normalized_tags is not None:
         set_track_tags(user, track, normalized_tags)
     return track

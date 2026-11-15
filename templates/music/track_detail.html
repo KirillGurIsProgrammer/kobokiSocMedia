@@ -3,9 +3,11 @@
 
 {% block content %}
 <article class="track-detail-page" data-track-row data-track-id="{{ track.pk }}" data-liked="{{ track.liked_by_user|yesno:'true,false' }}" data-like-count="{{ track.like_count|default:0 }}">
-    <section class="track-detail-hero{% if track.album.cover %} has-cover{% endif %}"{% if track.album.cover %} style="--track-cover: url('{{ track.album.cover.url }}')"{% endif %}>
+    <section class="track-detail-hero{% if track.cover or track.album.cover %} has-cover{% endif %}"{% if track.cover %} style="--track-cover: url('{{ track.cover.url }}')"{% elif track.album.cover %} style="--track-cover: url('{{ track.album.cover.url }}')"{% endif %}>
         <div class="track-detail-artwork" aria-label="Обложка трека">
-            {% if track.album.cover %}
+            {% if track.cover %}
+                <img src="{{ track.cover.url }}" alt="Обложка трека «{{ track.title }}»">
+            {% elif track.album.cover %}
                 <img src="{{ track.album.cover.url }}" alt="Обложка трека «{{ track.title }}»">
             {% else %}
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18V5l11-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg>
@@ -41,7 +43,7 @@
             {% if track.artist == track.owner.username %}data-track-artist-url="{% url 'accounts:profile' track.owner.username %}"{% endif %}
             data-track-title="{{ track.title }}"
             data-track-artist="{{ track.artist|default:'Исполнитель не указан' }}"
-            data-track-cover="{% if track.album.cover %}{{ track.album.cover.url }}{% endif %}"
+            data-track-cover="{% if track.cover %}{{ track.cover.url }}{% elif track.album.cover %}{{ track.album.cover.url }}{% endif %}"
             data-track-tags="{% for relation in track.track_tags.all %}{{ relation.tag.name }}{% if not forloop.last %}|{% endif %}{% endfor %}"
             aria-label="Воспроизвести: {{ track.title }}">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m8 5 12 7-12 7V5Z" fill="currentColor" stroke="none"></path></svg>

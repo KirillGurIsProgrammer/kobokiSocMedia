@@ -51,6 +51,12 @@ class Track(models.Model):
     audio_file = models.FileField(
         "Audio file", upload_to="tracks/", validators=[validate_audio]
     )
+    cover = models.ImageField(
+        "Обложка трека",
+        upload_to="track_covers/",
+        blank=True,
+        validators=[validate_image],
+    )
     tags = models.ManyToManyField(Tag, through="TrackTag", related_name="tracks", blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 

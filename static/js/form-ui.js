@@ -75,6 +75,16 @@
             addField(fields, "Название", "title", parsed.title, index);
             addField(fields, "Исполнитель", "artist", parsed.artist, index);
             addField(fields, "Теги", "tags", "", index, "music-tag-suggestions");
+            const coverLabel = document.createElement("label");
+            coverLabel.className = "track-upload-field track-upload-cover";
+            coverLabel.append(document.createTextNode("Обложка трека"));
+            const coverInput = document.createElement("input");
+            coverInput.type = "file";
+            coverInput.name = `cover_${index}`;
+            coverInput.accept = ".jpg,.jpeg,.png,.webp";
+            coverInput.className = "input";
+            coverLabel.append(coverInput);
+            fields.append(coverLabel);
             row.append(heading, fields);
             list.append(row);
         });

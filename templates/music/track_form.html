@@ -45,6 +45,20 @@
                     <p class="file-picker-hint">MP3, WAV или OGG</p>
                     {{ form.audio_file.errors }}
                 </div>
+                <div class="track-field">
+                    {{ form.cover.label_tag }}
+                    <div class="file-picker">
+                        {{ form.cover }}
+                        <label class="file-picker-trigger" for="id_cover">
+                            <span>Выбрать изображение</span>
+                        </label>
+                        <span class="file-picker-name" data-file-name aria-live="polite">
+                            {% if track.cover %}{{ track.cover.name|cut:"track_covers/" }}{% else %}Обложка не выбрана{% endif %}
+                        </span>
+                    </div>
+                    <p class="file-picker-hint">JPG, PNG или WebP, до 5 МБ</p>
+                    {{ form.cover.errors }}
+                </div>
             {% else %}
                 <div class="track-field">
                     {{ form.album.label_tag }}{{ form.album }}{{ form.album.errors }}

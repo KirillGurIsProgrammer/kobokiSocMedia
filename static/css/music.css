@@ -592,6 +592,41 @@ body.player-expanded { overflow: hidden; }
 .track-upload-field { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
 .track-upload-field:nth-child(3) { grid-column: 1 / -1; }
 .track-upload-field input { width: 100%; min-width: 0; }
+.track-upload-cover { grid-column: 1 / -1; }
+
+.music-form-page { width: min(100%, 760px); margin: 0 auto; padding: 0 0 20px; }
+.track-form-heading { margin: 0 0 16px; }
+.track-form-heading .eyebrow { color: var(--accent-strong); font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+.track-form-heading h1 { margin: 5px 0 3px; font-size: clamp(24px, 4vw, 32px); letter-spacing: -.7px; }
+.track-form-heading p { margin: 0; color: var(--muted); font-size: 13px; }
+.music-form-page .form-back-link { display: inline-flex; margin: 0 0 12px; color: var(--muted); font-size: 12px; }
+.track-form.form-card { display: grid; gap: 14px; padding: 18px; border-color: var(--line); border-radius: var(--radius-md); background: var(--surface); box-shadow: none; }
+.track-form-fields { display: grid; gap: 12px; }
+.track-field { display: grid; min-width: 0; gap: 6px; }
+.track-field > label { margin: 0; color: #d7d0da; font-size: 12px; font-weight: 600; }
+.track-form .track-field input:not([type="checkbox"]):not([type="file"]),
+.track-form .track-field select { min-height: 40px; }
+.track-form .file-picker { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.track-form .file-picker > input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+.file-picker-trigger { display: inline-flex !important; min-height: 38px; align-items: center; justify-content: center; gap: 8px; margin: 0 !important; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--text) !important; background: var(--surface-raised); cursor: pointer; font-size: 11px !important; white-space: nowrap; }
+.file-picker-trigger:hover { border-color: rgb(165 138 245 / 55%); background: #241e2c; }
+.file-picker-trigger svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.file-picker-name { min-width: 0; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.file-picker-hint { margin: 0; color: var(--muted); font-size: 10px; }
+.track-form .errorlist { margin: 0; padding: 0; list-style: none; color: #fda4af; font-size: 11px; }
+.track-form-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 2px; }
+.track-form-actions .button { min-height: 39px; }
+.track-form .track-upload-list { gap: 0; }
+.track-form .track-upload-row { padding: 12px 0; }
+.track-form .track-upload-fields { gap: 10px; }
+
+@media (max-width: 600px) {
+    .music-form-page { padding-bottom: 12px; }
+    .track-form.form-card { padding: 14px; }
+    .track-upload-fields { grid-template-columns: minmax(0, 1fr); gap: 9px; }
+    .track-upload-field:nth-child(3), .track-upload-cover { grid-column: auto; }
+    .track-form .file-picker { align-items: flex-start; flex-direction: column; }
+}
 
 @media (max-width: 1200px) {
     .music-player { grid-template-columns: minmax(180px, 1fr) minmax(320px, 600px) minmax(180px, 1fr); gap: 12px; padding-inline: 16px; }

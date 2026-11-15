@@ -10,8 +10,8 @@
     </header>
     {% if snapshot.visible %}
         <div class="now-playing-current" data-now-details{% if not snapshot.track %} hidden{% endif %}>
-            <div class="now-playing-cover{% if snapshot.track.album.cover %} has-cover{% endif %}" data-now-cover-wrap aria-hidden="true">
-                <img data-now-cover{% if snapshot.track.album.cover %} src="{{ snapshot.track.album.cover.url }}"{% else %} hidden{% endif %} alt="">
+            <div class="now-playing-cover{% if snapshot.track.cover or snapshot.track.album.cover %} has-cover{% endif %}" data-now-cover-wrap aria-hidden="true">
+                <img data-now-cover{% if snapshot.track.cover %} src="{{ snapshot.track.cover.url }}"{% elif snapshot.track.album.cover %} src="{{ snapshot.track.album.cover.url }}"{% else %} hidden{% endif %} alt="">
                 <svg viewBox="0 0 24 24" fill="none"><path d="M9 18V5l11-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg>
             </div>
             <div class="now-playing-copy">
@@ -59,7 +59,7 @@
                     data-track-url="{{ snapshot.track.audio_file.url }}"
                     data-track-title="{{ snapshot.track.title }}"
                     data-track-artist="{{ snapshot.track.artist }}"
-                    data-track-cover="{% if snapshot.track.album.cover %}{{ snapshot.track.album.cover.url }}{% endif %}"
+                    data-track-cover="{% if snapshot.track.cover %}{{ snapshot.track.cover.url }}{% elif snapshot.track.album.cover %}{{ snapshot.track.album.cover.url }}{% endif %}"
                     data-playlist-id="{{ snapshot.playlist.pk|default:'' }}">
                     {% csrf_token %}
                     <button class="button now-playing-join-button" type="submit">
