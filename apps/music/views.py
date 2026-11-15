@@ -507,6 +507,22 @@ def radio_tracks_api(request):
 
 
 @login_required
+@require_GET
+def track_search_api(request):
+    query = request.GET.get("q", "").strip()
+    tracks = Track.objects.all()
+    if query:
+        tracks = tracks.filter(Q(title__icontains=query) | Q(artist__icontains=query))
+    tracks = tracks.order_by("title", "artist", "pk")[:20]
+    return JsonResponse({
+        "results": [
+            {"id": track.pk, "title": track.title, "artist": track.artist}
+            for track in tracks
+        ],
+    })
+
+
+@login_required
 def playlist_create(request):
     if request.method == "POST":
         form = PlaylistForm(request.POST, request.FILES)

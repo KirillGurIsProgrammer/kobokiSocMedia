@@ -1,6 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
+from apps.music.forms import SearchableTrackWidget
 from apps.core.validators import validate_audio
 from apps.music.models import Track
 
@@ -52,6 +53,7 @@ class PostForm(forms.ModelForm):
                     "placeholder": "Чем хочешь поделиться?",
                 }
             ),
+            "track": SearchableTrackWidget(),
         }
 
     def __init__(self, *args, **kwargs):
@@ -59,7 +61,7 @@ class PostForm(forms.ModelForm):
         self.fields["track"].queryset = Track.objects.select_related(
             "owner", "album"
         ).order_by("title", "artist", "pk")
-        self.fields["track"].empty_label = "Без трека"
+        self.fields["track"].widget.queryset = self.fields["track"].queryset
 
     def clean(self):
         cleaned_data = super().clean()

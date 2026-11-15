@@ -1,6 +1,8 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
+from django.urls import reverse
+from django.utils.html import format_html
 
 from apps.core.validators import validate_audio, validate_image
 from . import services
@@ -8,6 +10,51 @@ from .models import Album, MusicSettings, Playlist, Track
 from apps.accounts.models import Follow
 
 User = get_user_model()
+
+
+class SearchableTrackWidget(forms.Widget):
+    def __init__(self, attrs=None):
+        super().__init__(attrs)
+        self.queryset = Track.objects.none()
+
+    def id_for_label(self, id_):
+        return f"{id_}_search" if id_ else ""
+
+    def render(self, name, value, attrs=None, renderer=None):
+        final_attrs = self.build_attrs(self.attrs, attrs)
+        widget_id = final_attrs.get("id", f"id_{name}")
+        selected_track = None
+        track_id = getattr(value, "pk", value)
+        if track_id not in (None, ""):
+            selected_track = self.queryset.filter(pk=track_id).first()
+
+        selected_label = ""
+        if selected_track:
+            selected_label = selected_track.title
+            if selected_track.artist:
+                selected_label += f" — {selected_track.artist}"
+        return format_html(
+            '<div class="track-picker" data-track-picker data-search-url="{}">'
+            '<input class="track-picker-search" type="search" id="{}_search" '
+            'value="{}" placeholder="Поиск по названию или исполнителю" '
+            'autocomplete="off" aria-autocomplete="list" aria-expanded="false" '
+            'aria-controls="{}_results" data-track-search>'
+            '<input type="hidden" name="{}" id="{}" value="{}" data-track-value>'
+            '<div class="track-picker-results" id="{}_results" role="listbox" '
+            'aria-label="Результаты поиска" data-track-results hidden></div>'
+            '<div class="track-picker-status" aria-live="polite" data-track-status></div>'
+            '<button class="track-picker-clear" type="button" data-track-clear '
+            'hidden>Очистить выбор</button>'
+            '</div>',
+            reverse("music:track_search_api"),
+            widget_id,
+            selected_label,
+            widget_id,
+            name,
+            widget_id,
+            track_id if selected_track else "",
+            widget_id,
+        )
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -134,12 +181,13 @@ class PlaylistTrackForm(forms.Form):
     track = forms.ModelChoiceField(
         queryset=Track.objects.none(),
         label="Трек",
-        empty_label="Выберите трек",
+        widget=SearchableTrackWidget(),
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["track"].queryset = Track.objects.select_related("owner", "album")
+        self.fields["track"].widget.queryset = self.fields["track"].queryset
 
 
 class CollaborativePlaylistForm(forms.Form):

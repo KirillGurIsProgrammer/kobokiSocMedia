@@ -11,6 +11,7 @@ urlpatterns = [
     path("tag/<str:slug>/", views.tag_detail, name="tag_detail"),
     path("radio/<str:slug>/", views.radio, name="radio"),
     path("api/radio/", views.radio_tracks_api, name="radio_tracks_api"),
+    path("api/tracks/search/", views.track_search_api, name="track_search_api"),
     path("api/now-playing/", views.now_playing_update, name="now_playing_update"),
     path("api/now-playing/<str:username>/", views.now_playing_detail, name="now_playing_detail"),
     path("api/listen-along/<str:username>/join/", views.listen_along_join, name="listen_along_join"),

@@ -7,10 +7,11 @@
     <meta name="theme-color" content="#0d0b10">
     <title>{% block title %}Koboki{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/main.css' %}?v=10">
-    <link rel="stylesheet" href="{% static 'css/music.css' %}?v=8">
+    <link rel="stylesheet" href="{% static 'css/music.css' %}?v=9">
     <script src="{% static 'js/player.js' %}?v=7" defer></script>
     <script src="{% static 'js/main.js' %}?v=1" defer></script>
     <script src="{% static 'js/form-ui.js' %}?v=4" defer></script>
+    <script src="{% static 'js/track-picker.js' %}?v=1" defer></script>
 </head>
 <body{% if request.resolver_match.app_name == 'music' %} class="music-page"{% endif %}{% if request.resolver_match.view_name == 'accounts:login' or request.resolver_match.view_name == 'accounts:register' %} data-auth-page="true"{% endif %}>
     <div class="page-transition-progress" data-page-progress aria-hidden="true"><span></span></div>

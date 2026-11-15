@@ -260,6 +260,42 @@ class MusicTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_playlist_track_picker_uses_search_widget(self):
+        playlist = self._playlist(self.alice)
+        self.client.force_login(self.alice)
+
+        response = self.client.get(reverse("music:playlist_detail", args=[playlist.pk]))
+
+        self.assertContains(response, 'data-track-picker')
+        self.assertContains(response, 'data-search-url="/music/api/tracks/search/"')
+
+    def test_track_search_api_filters_titles_and_artists(self):
+        self.track.artist = "Blue Singer"
+        self.track.save(update_fields=["artist"])
+        self._track(self.bob, "Blue Moon")
+        self.client.force_login(self.alice)
+
+        response = self.client.get(
+            reverse("music:track_search_api"),
+            {"q": "blue"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [track["title"] for track in response.json()["results"]],
+            ["Blue Moon", "T"],
+        )
+
+    def test_track_search_api_limits_results(self):
+        for index in range(25):
+            self._track(self.alice, f"Song {index:02}")
+        self.client.force_login(self.alice)
+
+        response = self.client.get(reverse("music:track_search_api"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["results"]), 20)
+
     def test_public_playlist_can_be_saved_and_unsaved(self):
         playlist = self._playlist(self.alice)
 

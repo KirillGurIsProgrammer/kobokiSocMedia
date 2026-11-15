@@ -28,7 +28,12 @@
 
     {% if is_owner %}
     <form class="playlist-add-track" method="post" action="{% url 'music:playlist_add_track' playlist.pk %}">
-        {% csrf_token %}{{ add_track_form.track }}
+        {% csrf_token %}
+        <div class="playlist-add-track-picker">
+            {{ add_track_form.track.label_tag }}
+            {{ add_track_form.track }}
+            {{ add_track_form.track.errors }}
+        </div>
         <button class="button button--small" type="submit">Добавить трек</button>
     </form>
     {% endif %}

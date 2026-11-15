@@ -39,6 +39,7 @@ class PostModelTests(TestCase):
         self.assertIn("track", form.fields)
         self.assertIn("track_file", form.fields)
         self.assertNotIn("track_url", form.fields)
+        self.assertIn("data-track-picker", str(form["track"]))
 
     def test_post_rejects_empty_or_whitespace_text(self):
         for text in ("", "   \n\t"):
