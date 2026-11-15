@@ -240,6 +240,42 @@ class ListenAlong(models.Model):
     joined_at = models.DateTimeField(auto_now_add=True)
 
 
+class CollaborativePlaylist(models.Model):
+    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name="created_collaborative_playlists")
+    title = models.CharField("Название", max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-pk")
+
+    def __str__(self):
+        return self.title
+
+
+class CollaborativePlaylistInvite(models.Model):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+    STATUS_CHOICES = [(PENDING, "Ожидает ответа"), (ACCEPTED, "Принято"), (DECLINED, "Отклонено")]
+
+    playlist = models.ForeignKey(CollaborativePlaylist, on_delete=models.CASCADE, related_name="invites")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="music_playlist_invites")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("playlist", "user"), name="unique_music_collab_invite")]
+
+
+class CollaborativePlaylistMember(models.Model):
+    playlist = models.ForeignKey(CollaborativePlaylist, on_delete=models.CASCADE, related_name="memberships")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="music_collaborative_memberships")
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("playlist", "user"), name="unique_music_collab_member")]
+
+
 class Review(models.Model):
     """A review for exactly one track or album."""
 

@@ -15,7 +15,7 @@ from django.urls import reverse
 
 from apps.core.validators import validate_audio
 from apps.music import services
-from apps.music.models import Like, ListenAlong, MusicSettings, NowPlaying, Playlist, Track
+from apps.music.models import CollaborativePlaylist, CollaborativePlaylistInvite, CollaborativePlaylistMember, Like, ListenAlong, MusicSettings, NowPlaying, Playlist, Track
 
 TEMP_MEDIA = tempfile.mkdtemp()
 
@@ -262,6 +262,53 @@ class MusicTests(TestCase):
         services.remove_track_from_playlist(self.alice, playlist, second)
         remaining = playlist.playlist_tracks.get()
         self.assertEqual((remaining.track_id, remaining.position), (self.track.pk, 0))
+
+    def test_collaborative_playlist_requires_follow_and_waits_for_acceptance(self):
+        with self.assertRaises(PermissionDenied):
+            services.create_collaborative_playlist(self.alice, title="Вместе", invitees=[self.bob])
+
+        Follow.objects.create(follower=self.alice, following=self.bob)
+        playlist = services.create_collaborative_playlist(self.alice, title="Вместе", invitees=[self.bob])
+        Like.objects.create(user=self.alice, track=self.track)
+
+        self.assertEqual(list(playlist.memberships.values_list("user_id", flat=True)), [self.alice.pk])
+        self.assertEqual(services.get_collaborative_playlist_tracks(self.alice, playlist), [self.track])
+        with self.assertRaises(PermissionDenied):
+            services.get_collaborative_playlist_tracks(self.bob, playlist)
+
+        invite = playlist.invites.get(user=self.bob)
+        services.respond_collaborative_invite(self.bob, invite, accept=True)
+        self.assertTrue(playlist.memberships.filter(user=self.bob).exists())
+
+    def test_collaborative_playlist_round_robins_likes_without_duplicates(self):
+        Follow.objects.create(follower=self.alice, following=self.bob)
+        playlist = services.create_collaborative_playlist(self.alice, title="Вместе", invitees=[self.bob])
+        invite = playlist.invites.get(user=self.bob)
+        services.respond_collaborative_invite(self.bob, invite, accept=True)
+
+        alice_second = self._track(self.alice, "Alice 2")
+        bob_first = self._track(self.bob, "Bob 1")
+        bob_second = self._track(self.bob, "Bob 2")
+        Like.objects.create(user=self.alice, track=self.track)
+        Like.objects.create(user=self.alice, track=alice_second)
+        Like.objects.create(user=self.bob, track=self.track)
+        Like.objects.create(user=self.bob, track=bob_first)
+        Like.objects.create(user=self.bob, track=bob_second)
+
+        tracks = services.get_collaborative_playlist_tracks(self.alice, playlist)
+
+        self.assertEqual([track.pk for track in tracks], [alice_second.pk, bob_second.pk, self.track.pk, bob_first.pk])
+        self.assertEqual([track.brought_by.pk for track in tracks], [self.alice.pk, self.bob.pk, self.alice.pk, self.bob.pk])
+
+    def test_collaborative_playlist_is_private_and_only_creator_can_delete(self):
+        Follow.objects.create(follower=self.alice, following=self.bob)
+        playlist = services.create_collaborative_playlist(self.alice, title="Вместе", invitees=[self.bob])
+        with self.assertRaises(PermissionDenied):
+            services.get_collaborative_playlist_tracks(self.bob, playlist)
+        with self.assertRaises(PermissionDenied):
+            services.delete_collaborative_playlist(self.bob, playlist)
+        self.client.login(username="bob", password="pass12345")
+        self.assertEqual(self.client.get(reverse("music:collaborative_playlist_detail", args=[playlist.pk])).status_code, 404)
 
     def test_recommendations_prioritize_liked_artists_and_exclude_own_and_liked(self):
         self.track.artist = "Любимая группа"

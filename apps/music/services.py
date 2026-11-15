@@ -13,6 +13,9 @@ from datetime import timedelta
 from apps.accounts.models import Follow
 from .models import (
     Album,
+    CollaborativePlaylist,
+    CollaborativePlaylistInvite,
+    CollaborativePlaylistMember,
     Like,
     ListenAlong,
     MusicSettings,
@@ -542,6 +545,90 @@ def update_music_settings(user, *, show_now_playing, allow_join):
         defaults={"show_now_playing": show_now_playing, "allow_join": allow_join},
     )
     return settings
+
+
+def create_collaborative_playlist(user, *, title, invitees):
+    invitees = list(dict.fromkeys(invitees))
+    if not title.strip():
+        raise ValidationError("Укажите название плейлиста.")
+    if not invitees:
+        raise ValidationError("Выберите хотя бы одного пользователя для приглашения.")
+    if user in invitees or Follow.objects.filter(follower=user, following__in=invitees).count() != len(invitees):
+        raise PermissionDenied("Приглашать можно только пользователей, на которых вы подписаны.")
+    with transaction.atomic():
+        playlist = CollaborativePlaylist.objects.create(creator=user, title=title.strip())
+        CollaborativePlaylistMember.objects.create(playlist=playlist, user=user)
+        CollaborativePlaylistInvite.objects.bulk_create([
+            CollaborativePlaylistInvite(playlist=playlist, user=invitee) for invitee in invitees
+        ])
+    return playlist
+
+
+def respond_collaborative_invite(user, invite, *, accept):
+    if invite.user_id != user.pk or invite.status != CollaborativePlaylistInvite.PENDING:
+        raise PermissionDenied("Это приглашение недоступно.")
+    with transaction.atomic():
+        invite.status = CollaborativePlaylistInvite.ACCEPTED if accept else CollaborativePlaylistInvite.DECLINED
+        invite.save(update_fields=["status"])
+        if accept:
+            CollaborativePlaylistMember.objects.get_or_create(playlist=invite.playlist, user=user)
+    return invite
+
+
+def ensure_collaborative_member(user, playlist):
+    if playlist.creator_id != user.pk and not playlist.memberships.filter(user=user).exists():
+        raise PermissionDenied("Плейлист доступен только участникам.")
+
+
+def leave_collaborative_playlist(user, playlist):
+    ensure_collaborative_member(user, playlist)
+    if playlist.creator_id == user.pk:
+        raise ValidationError("Создатель не может выйти из своего плейлиста.")
+    playlist.memberships.filter(user=user).delete()
+    CollaborativePlaylistInvite.objects.filter(playlist=playlist, user=user).delete()
+
+
+def delete_collaborative_playlist(user, playlist):
+    if playlist.creator_id != user.pk:
+        raise PermissionDenied("Удалить плейлист может только создатель.")
+    playlist.delete()
+
+
+def get_collaborative_playlist_tracks(user, playlist, *, limit=40):
+    ensure_collaborative_member(user, playlist)
+    member_ids = list(playlist.memberships.order_by("joined_at", "pk").values_list("user_id", flat=True))
+    liked_by_member = {member_id: [] for member_id in member_ids}
+    likes = (
+        Like.objects.filter(user_id__in=member_ids)
+        .select_related("user", "track", "track__owner", "track__album")
+        .prefetch_related("track__track_tags__tag")
+        .order_by("user_id", "-created_at", "-pk")
+    )
+    for like in likes:
+        liked_by_member[like.user_id].append(like)
+    result = []
+    seen = set()
+    positions = {member_id: 0 for member_id in member_ids}
+    while len(result) < min(limit, 40):
+        added = False
+        for member_id in member_ids:
+            likes = liked_by_member[member_id]
+            position = positions[member_id]
+            while position < len(likes) and likes[position].track_id in seen:
+                position += 1
+            positions[member_id] = position
+            if position < len(likes):
+                like = likes[position]
+                positions[member_id] += 1
+                seen.add(like.track_id)
+                like.track.brought_by = like.user
+                result.append(like.track)
+                added = True
+                if len(result) >= min(limit, 40):
+                    break
+        if not added:
+            break
+    return result
 
 
 def get_music_settings(user):

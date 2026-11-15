@@ -14,6 +14,7 @@ from django.views.decorators.http import require_GET, require_POST
 from . import services
 from .forms import (
     AlbumForm,
+    CollaborativePlaylistForm,
     MusicSettingsForm,
     PlaylistForm,
     PlaylistTrackForm,
@@ -21,7 +22,7 @@ from .forms import (
     TrackForm,
     TrackUploadForm,
 )
-from .models import Album, PlaylistTrack, SavedPlaylist, Tag, Track
+from .models import Album, CollaborativePlaylist, CollaborativePlaylistInvite, Like, PlaylistTrack, SavedPlaylist, Tag, Track
 
 User = get_user_model()
 
@@ -312,7 +313,104 @@ def playlists(request):
         "my_playlists": services.list_user_playlists(request.user),
         "saved_playlists": services.list_saved_playlists(request.user),
         "public_playlists": services.list_public_playlists(request.user),
+        "collaborative_playlists": CollaborativePlaylist.objects.filter(memberships__user=request.user).select_related("creator").distinct(),
+        "collaborative_invites": CollaborativePlaylistInvite.objects.filter(user=request.user, status=CollaborativePlaylistInvite.PENDING).select_related("playlist", "playlist__creator"),
+        "collaborative_form": CollaborativePlaylistForm(user=request.user),
     })
+
+
+@login_required
+def collaborative_playlist_create(request):
+    if request.method == "POST":
+        form = CollaborativePlaylistForm(request.POST, user=request.user)
+        if form.is_valid():
+            try:
+                playlist = services.create_collaborative_playlist(
+                    request.user,
+                    title=form.cleaned_data["title"],
+                    invitees=form.cleaned_data["invitees"],
+                )
+            except (ValidationError, PermissionDenied) as error:
+                messages.error(request, "; ".join(getattr(error, "messages", [str(error)])))
+            else:
+                messages.success(request, "Совместный плейлист создан. Приглашения отправлены.")
+                return redirect("music:collaborative_playlist_detail", playlist.pk)
+    else:
+        form = CollaborativePlaylistForm(user=request.user)
+    return render(request, "music/collaborative_playlist_form.html", {"form": form})
+
+
+@login_required
+def collaborative_playlist_detail(request, playlist_id):
+    playlist = get_object_or_404(CollaborativePlaylist.objects.select_related("creator"), pk=playlist_id)
+    try:
+        tracks = services.get_collaborative_playlist_tracks(request.user, playlist)
+    except PermissionDenied:
+        raise Http404
+    track_data = {
+        track.pk: track for track in services.with_like_data(
+            Track.objects.filter(pk__in=[item.pk for item in tracks]).select_related("owner", "album"),
+            request.user,
+        )
+    }
+    for track in tracks:
+        annotated = track_data[track.pk]
+        track.liked_by_user = annotated.liked_by_user
+        track.like_count = annotated.like_count
+    return render(request, "music/collaborative_playlist_detail.html", {
+        "playlist": playlist,
+        "tracks": tracks,
+        "is_creator": playlist.creator_id == request.user.pk,
+        "members": playlist.memberships.select_related("user").order_by("joined_at"),
+    })
+
+
+@login_required
+@require_POST
+def collaborative_invite_respond(request, invite_id, response):
+    if response not in {"accept", "decline"}:
+        raise Http404
+    invite = get_object_or_404(CollaborativePlaylistInvite.objects.select_related("playlist"), pk=invite_id)
+    try:
+        services.respond_collaborative_invite(request.user, invite, accept=response == "accept")
+    except PermissionDenied:
+        raise Http404
+    return redirect("music:collaborative_playlist_detail", invite.playlist_id) if response == "accept" else redirect("music:playlists")
+
+
+@login_required
+@require_POST
+def collaborative_playlist_leave(request, playlist_id):
+    playlist = get_object_or_404(CollaborativePlaylist, pk=playlist_id)
+    try:
+        services.leave_collaborative_playlist(request.user, playlist)
+    except (PermissionDenied, ValidationError):
+        raise Http404
+    messages.success(request, "Вы вышли из плейлиста.")
+    return redirect("music:playlists")
+
+
+@login_required
+@require_POST
+def collaborative_playlist_delete(request, playlist_id):
+    playlist = get_object_or_404(CollaborativePlaylist, pk=playlist_id)
+    try:
+        services.delete_collaborative_playlist(request.user, playlist)
+    except PermissionDenied:
+        raise Http404
+    messages.success(request, "Совместный плейлист удалён.")
+    return redirect("music:playlists")
+
+
+@login_required
+@require_POST
+def collaborative_playlist_refresh(request, playlist_id):
+    playlist = get_object_or_404(CollaborativePlaylist, pk=playlist_id)
+    try:
+        services.ensure_collaborative_member(request.user, playlist)
+    except PermissionDenied:
+        raise Http404
+    return redirect("music:collaborative_playlist_detail", playlist.pk)
 
 
 @login_required

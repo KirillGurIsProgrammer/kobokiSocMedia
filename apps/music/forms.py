@@ -1,9 +1,13 @@
 from django import forms
 from django.core.exceptions import ValidationError
+from django.contrib.auth import get_user_model
 
 from apps.core.validators import validate_audio
 from . import services
 from .models import Album, MusicSettings, Playlist, Track
+from apps.accounts.models import Follow
+
+User = get_user_model()
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -123,6 +127,22 @@ class PlaylistTrackForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["track"].queryset = Track.objects.select_related("owner", "album")
+
+
+class CollaborativePlaylistForm(forms.Form):
+    title = forms.CharField(label="Название", max_length=100)
+    invitees = forms.ModelMultipleChoiceField(
+        label="Пригласить подписок",
+        queryset=User.objects.none(),
+        required=True,
+        widget=forms.SelectMultiple(attrs={"size": 5}),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["invitees"].queryset = User.objects.filter(
+            pk__in=Follow.objects.filter(follower=user).values("following_id")
+        ).order_by("username") if user else User.objects.none()
 
 
 class MusicSettingsForm(forms.Form):

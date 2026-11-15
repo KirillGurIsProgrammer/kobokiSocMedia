@@ -30,6 +30,144 @@
     let radioLoading = false;
     let radioGeneration = 0;
     let radioStartOnLoad = false;
+    let audioContext = null;
+    let mediaSource = null;
+    let equalizer = [];
+    let compressor = null;
+    let outputGain = null;
+    let expanded = false;
+    let previousFocus = null;
+    const soundKey = "koboki.music-sound.v1";
+    const frequencies = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+
+    function ensureAudioGraph() {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        try {
+            if (!audioContext) {
+                audioContext = new AudioContextClass();
+                mediaSource = audioContext.createMediaElementSource(audio);
+                equalizer = frequencies.map((frequency, index) => {
+                    const filter = audioContext.createBiquadFilter();
+                    filter.type = index === 0 ? "lowshelf" : index === 9 ? "highshelf" : "peaking";
+                    filter.frequency.value = frequency;
+                    if (filter.type === "peaking") filter.Q.value = 1;
+                    return filter;
+                });
+                compressor = audioContext.createDynamicsCompressor();
+                outputGain = audioContext.createGain();
+                mediaSource.connect(equalizer[0]);
+                equalizer.forEach((filter, index) => filter.connect(equalizer[index + 1] || compressor));
+                compressor.connect(outputGain);
+                outputGain.connect(audioContext.destination);
+                restoreSoundSettings();
+                audio.addEventListener("timeupdate", updateCompressionMeter);
+            }
+            if (audioContext.state === "suspended") audioContext.resume().catch(() => {});
+        } catch (_) {
+            showToast("Обработка звука недоступна в этом браузере");
+        }
+    }
+
+    function soundControls() {
+        return {
+            eqEnabled: player.querySelector("[data-eq-enabled]"),
+            eqBands: [...player.querySelectorAll("[data-eq-band]")],
+            eqPreset: player.querySelector("[data-eq-preset]"),
+            compressorPreset: player.querySelector("[data-compressor-preset]"),
+            compressorInputs: [...player.querySelectorAll("[data-compressor]")],
+        };
+    }
+
+    function saveSoundSettings() {
+        const controls = soundControls();
+        const settings = {
+            eqEnabled: controls.eqEnabled.checked,
+            bands: controls.eqBands.map((input) => Number(input.value)),
+            compressorPreset: controls.compressorPreset.value,
+            compressor: Object.fromEntries(controls.compressorInputs.map((input) => [input.dataset.compressor, Number(input.value)])),
+        };
+        try { localStorage.setItem(soundKey, JSON.stringify(settings)); } catch (_) { /* Storage can be unavailable. */ }
+    }
+
+    function applySoundSettings() {
+        if (!audioContext) return;
+        const controls = soundControls();
+        controls.eqBands.forEach((input, index) => {
+            equalizer[index].gain.setTargetAtTime(controls.eqEnabled.checked ? Number(input.value) : 0, audioContext.currentTime, 0.02);
+        });
+        controls.compressorInputs.forEach((input) => {
+            const target = input.dataset.compressor === "makeup" ? outputGain.gain : compressor[input.dataset.compressor];
+            const value = input.dataset.compressor === "makeup" ? 10 ** (Number(input.value) / 20) : Number(input.value);
+            target.setTargetAtTime(value, audioContext.currentTime, 0.03);
+            const output = input.parentElement.querySelector("output");
+            if (output) output.value = `${Number(input.value).toFixed(input.step === "any" ? 1 : 2)}${input.dataset.compressor === "makeup" ? " дБ" : ""}`;
+        });
+        updateCompressionMeter();
+    }
+
+    function restoreSoundSettings() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(soundKey) || "null");
+            if (saved) {
+                const controls = soundControls();
+                controls.eqEnabled.checked = saved.eqEnabled !== false;
+                controls.eqBands.forEach((input, index) => { input.value = String(saved.bands?.[index] ?? 0); });
+                controls.compressorPreset.value = saved.compressorPreset || "off";
+                controls.compressorInputs.forEach((input) => { if (saved.compressor?.[input.dataset.compressor] != null) input.value = String(saved.compressor[input.dataset.compressor]); });
+            }
+        } catch (_) { /* Ignore malformed settings. */ }
+        applySoundSettings();
+    }
+
+    function setEqualizerPreset(name) {
+        const values = {
+            flat: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            bass: [6, 5, 3, 1, 0, 0, 0, 1, 2, 3],
+            vocal: [-2, -1, 0, 2, 3, 3, 2, 1, 0, -1],
+            night: [-3, -2, 0, 2, 2, 1, 0, -1, -2, -3],
+        };
+        if (!values[name]) return;
+        soundControls().eqBands.forEach((input, index) => { input.value = String(values[name][index]); });
+        soundControls().eqPreset.value = name;
+        applySoundSettings();
+        saveSoundSettings();
+    }
+
+    function setCompressorPreset(name) {
+        const presets = {
+            off: [0, 0, 1, 0.003, 0.25, 0],
+            soft: [-18, 24, 3, 0.01, 0.2, 2],
+            night: [-30, 30, 6, 0.02, 0.35, 5],
+        };
+        if (!presets[name]) return;
+        soundControls().compressorInputs.forEach((input, index) => { input.value = String(presets[name][index]); });
+        soundControls().compressorPreset.value = name;
+        applySoundSettings();
+        saveSoundSettings();
+    }
+
+    function updateCompressionMeter() {
+        const meter = player.querySelector("[data-compressor-reduction]");
+        if (meter) meter.textContent = `Сжатие: ${compressor ? Math.round(compressor.reduction) : 0} дБ`;
+    }
+
+    function setExpanded(value) {
+        expanded = value;
+        player.classList.toggle("is-expanded", expanded);
+        document.body.classList.toggle("player-expanded", expanded);
+        player.setAttribute("role", expanded ? "dialog" : "region");
+        player.setAttribute("aria-modal", String(expanded));
+        player.querySelector("[data-player-expand]").setAttribute("aria-pressed", String(expanded));
+        player.querySelector("[data-player-close]").hidden = !expanded;
+        if (expanded) {
+            previousFocus = document.activeElement;
+            player.querySelector("[data-player-close]").focus();
+        } else {
+            previousFocus?.focus?.();
+            previousFocus = null;
+        }
+    }
 
     const formatTime = (seconds) => {
         if (!Number.isFinite(seconds)) return "0:00";
@@ -128,6 +266,17 @@
             cover.style.backgroundImage = "";
             cover.classList.remove("has-cover");
         }
+        player.querySelector("[data-expanded-title]").textContent = track.title || "Без названия";
+        player.querySelector("[data-expanded-artist]").textContent = track.artist || "Неизвестный исполнитель";
+        const expandedCover = player.querySelector("[data-expanded-cover]");
+        expandedCover.style.backgroundImage = track.cover ? `url("${CSS.escape(track.cover)}")` : "";
+        const tagList = player.querySelector("[data-expanded-tags]");
+        tagList.replaceChildren(...(track.tags || []).map((tag) => {
+            const chip = document.createElement("span");
+            chip.className = "music-tag-chip";
+            chip.textContent = `#${tag}`;
+            return chip;
+        }));
         seek.disabled = false;
         playerLikeForm.dataset.trackId = track.id;
         playerLikeForm.action = playerLikeUrl.replace(/0\/like\/$/, `${track.id}/like/`);
@@ -139,6 +288,7 @@
     }
 
     function setTrack(track, index = -1, shouldPlay = true) {
+        if (shouldPlay || audioContext) ensureAudioGraph();
         activeTrack = track;
         queueIndex = index;
         audio.src = track.url;
@@ -205,6 +355,7 @@
     }
 
     function startRadio(endpoint) {
+        ensureAudioGraph();
         stopRadioMode();
         radioMode = { endpoint };
         queue = [];
@@ -306,6 +457,7 @@
     }
 
     async function joinListenAlong(form) {
+        ensureAudioGraph();
         const playRequest = audio.play();
         if (playRequest && typeof playRequest.catch === "function") playRequest.catch(() => {});
         const csrf = form.querySelector("[name=csrfmiddlewaretoken]")?.value;
@@ -357,6 +509,7 @@
             playlistId: button.dataset.playlistId || "",
             liked: row?.dataset.liked === "true",
             likeCount: Number(row?.dataset.likeCount || 0),
+            tags: (button.dataset.trackTags || "").split("|").filter(Boolean),
         };
     }
 
@@ -374,7 +527,7 @@
         if (!button) return;
         if (button.matches("[data-player-toggle]")) {
             if (!activeTrack) return;
-            if (audio.paused) audio.play().catch(() => {});
+            if (audio.paused) { ensureAudioGraph(); audio.play().catch(() => {}); }
             else audio.pause();
         } else if (button.matches("[data-player-previous]")) {
             if (audio.currentTime > 3) audio.currentTime = 0;
@@ -385,6 +538,18 @@
             const opening = queuePanel.hidden;
             queuePanel.hidden = !opening;
             button.setAttribute("aria-expanded", String(opening));
+        } else if (button.matches("[data-player-expand]")) {
+            setExpanded(!expanded);
+        } else if (button.matches("[data-player-close]")) {
+            setExpanded(false);
+        } else if (button.matches("[data-player-native-fullscreen]")) {
+            if (!document.fullscreenElement) player.requestFullscreen?.().catch(() => showToast("Полноэкранный режим недоступен"));
+            else document.exitFullscreen?.();
+        } else if (button.matches("[data-sound-toggle]")) {
+            const panel = player.querySelector("[data-sound-panel]");
+            panel.hidden = !panel.hidden;
+            button.setAttribute("aria-expanded", String(!panel.hidden));
+            if (!panel.hidden) ensureAudioGraph();
         }
     });
 
@@ -434,7 +599,7 @@
             if (!list) return;
             queue = Array.from(list.querySelectorAll("[data-track-play]"), (button) => {
                 const track = trackFromButton(button);
-                track.playlistId = playlistId;
+                track.playlistId = playlistId.startsWith("shared-") ? "" : playlistId;
                 if (playlistButton.dataset.playlistCover) track.cover = playlistButton.dataset.playlistCover;
                 return track;
             });
@@ -579,13 +744,36 @@
         audio.volume = Number(event.target.value);
         saveState();
     });
+    player.querySelector("[data-eq-enabled]").addEventListener("change", () => { ensureAudioGraph(); applySoundSettings(); saveSoundSettings(); });
+    player.querySelectorAll("[data-eq-band]").forEach((input) => input.addEventListener("input", () => {
+        ensureAudioGraph(); soundControls().eqPreset.value = "custom"; applySoundSettings(); saveSoundSettings();
+    }));
+    player.querySelector("[data-eq-preset]").addEventListener("change", (event) => setEqualizerPreset(event.target.value));
+    player.querySelectorAll("[data-compressor]").forEach((input) => input.addEventListener("input", () => {
+        ensureAudioGraph(); soundControls().compressorPreset.value = "custom"; applySoundSettings(); saveSoundSettings();
+    }));
+    player.querySelector("[data-compressor-preset]").addEventListener("change", (event) => setCompressorPreset(event.target.value));
+    player.querySelector("[data-eq-reset]").addEventListener("click", () => setEqualizerPreset("flat"));
     document.addEventListener("keydown", (event) => {
         const target = event.target;
+        if (event.key === "Escape" && expanded) {
+            event.preventDefault();
+            setExpanded(false);
+            return;
+        }
+        if (expanded && event.key === "Tab") {
+            const focusable = [...player.querySelectorAll("button:not([disabled]):not([hidden]), input:not([disabled]), select:not([disabled]), a[href]")].filter((element) => element.getClientRects().length);
+            if (!focusable.length) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }
         if (target.matches("input, textarea, select, button, summary, [contenteditable='true']")) return;
         if (event.code === "Space") {
             event.preventDefault();
             if (!activeTrack || joinedHost) return;
-            if (audio.paused) audio.play().catch(() => {});
+            if (audio.paused) { ensureAudioGraph(); audio.play().catch(() => {}); }
             else audio.pause();
         } else if (event.code === "ArrowLeft" || event.code === "ArrowRight") {
             if (!activeTrack || joinedHost) return;
@@ -599,6 +787,8 @@
         } else if (event.key.toLowerCase() === "m") {
             audio.muted = !audio.muted;
             showToast(audio.muted ? "Звук выключен" : "Звук включён");
+        } else if (event.key.toLowerCase() === "f") {
+            setExpanded(!expanded);
         }
     });
     window.addEventListener("beforeunload", () => {
