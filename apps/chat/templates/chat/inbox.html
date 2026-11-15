@@ -2,16 +2,30 @@
 {% block content %}
 <section class="chat-page">
   <div class="page-heading">
-    <div><span class="eyebrow"><span class="eyebrow-dot"></span> ЛИЧНЫЕ СООБЩЕНИЯ</span><h1>Диалоги.</h1></div>
+    <div><span class="eyebrow"><span class="eyebrow-dot"></span> СООБЩЕНИЯ</span><h1>Диалоги.</h1></div>
     {% if unread_total %}<span class="unread-badge">{{ unread_total }} непрочитанных</span>{% endif %}
+  </div>
+  <div class="chat-create-card">
+    <h2>Создать группу или канал</h2>
+    <form method="post" action="{% url 'chat:create' %}" class="chat-create-form">
+      {% csrf_token %}
+      {{ conversation_form.kind }}
+      {{ conversation_form.title }}
+      {{ conversation_form.usernames }}
+      <button class="button button--small" type="submit">Создать</button>
+    </form>
+    {% if conversation_form.errors %}<div class="form-errors">{{ conversation_form.errors }}</div>{% endif %}
   </div>
   <div class="conversation-list">
     {% for conversation in conversations %}
       <a class="conversation-card" href="{% url 'chat:dialog' conversation.id %}">
         <div>
-          {% for participant in conversation.participants.all %}
-            {% if participant != user %}<span class="conversation-name">{{ participant.username }}</span>{% endif %}
-          {% endfor %}
+          <span class="conversation-name">
+            {% if conversation.title %}{{ conversation.title }}{% else %}
+              {% for participant in conversation.participants.all %}{% if participant != user %}{{ participant.username }}{% endif %}{% endfor %}
+            {% endif %}
+          </span>
+          <small class="conversation-kind">{{ conversation.get_kind_display }}</small>
           {% with last=conversation.messages.last %}
             <p class="conversation-preview">{{ last.text|default:"Вложение"|truncatechars:80|default:"Сообщений пока нет" }}</p>
           {% endwith %}

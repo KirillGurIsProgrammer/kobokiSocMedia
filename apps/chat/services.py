@@ -13,16 +13,29 @@ def get_or_create_dialog(user_a, user_b):
     if user_a.pk == user_b.pk:
         raise ValidationError("Нельзя создать диалог с самим собой.")
     conversation = (
-        Conversation.objects.filter(participants__in=[user_a, user_b])
+        Conversation.objects.filter(kind=Conversation.DIRECT, participants__in=[user_a, user_b])
         .annotate(participant_count=Count("participants", distinct=True))
         .filter(participant_count=2)
         .first()
     )
     if conversation:
         return conversation, False
-    conversation = Conversation.objects.create()
+    conversation = Conversation.objects.create(kind=Conversation.DIRECT, created_by=user_a)
     conversation.participants.add(user_a, user_b)
     return conversation, True
+
+
+@transaction.atomic
+def create_conversation(*, creator, kind, title, participants=()):
+    if kind not in {Conversation.GROUP, Conversation.CHANNEL}:
+        raise ValidationError("Неизвестный тип чата.")
+    title = (title or "").strip()
+    if not title:
+        raise ValidationError("Укажите название чата.")
+    users = {creator, *participants}
+    conversation = Conversation.objects.create(kind=kind, title=title, created_by=creator)
+    conversation.participants.add(*users)
+    return conversation
 
 
 def ensure_participant(conversation, user):
@@ -53,3 +66,11 @@ def mark_read(conversation, user):
 
 def unread_count(user):
     return Message.objects.filter(conversation__participants=user, is_read=False).exclude(sender=user).count()
+
+
+@transaction.atomic
+def delete_message(message, user):
+    ensure_participant(message.conversation, user)
+    if message.sender_id != user.pk:
+        raise PermissionDenied("Удалять можно только свои сообщения.")
+    message.delete()

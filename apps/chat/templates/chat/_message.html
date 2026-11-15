@@ -1,8 +1,19 @@
-<article class="message-card{% if message.sender == user %} message-card--mine{% endif %}">
-  <span class="message-author">{{ message.sender.username }}</span>
-  <time class="message-time" datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:'d.m.Y H:i' }}</time>
-  {% if message.text %}<p class="message-text">{{ message.text }}</p>{% endif %}
-  {% for attachment in message.attachments.all %}
-    <a class="message-attachment" href="{{ attachment.file.url }}">📎 {{ attachment.file.name }}</a>
-  {% endfor %}
+<article class="message-card{% if message.sender == user %} message-card--mine{% else %} message-card--other{% endif %}">
+  <div class="message-bubble">
+    <span class="message-author">{{ message.sender.username }}</span>
+    <time class="message-time" datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:'d.m.Y H:i' }}</time>
+    {% if message.text %}<p class="message-text">{{ message.text }}</p>{% endif %}
+    {% for attachment in message.attachments.all %}
+      {% if attachment.is_image %}
+        <img class="message-image" src="{{ attachment.file.url }}" alt="Изображение во вложении">
+      {% else %}
+        <a class="message-attachment" href="{{ attachment.file.url }}">📎 {{ attachment.file.name }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% if message.sender == user %}
+    <form class="delete-message-form" method="post" action="{% url 'chat:delete_message' message.id %}" hidden>
+      {% csrf_token %}<button type="submit">Удалить</button>
+    </form>
+  {% endif %}
 </article>

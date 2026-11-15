@@ -3,7 +3,7 @@
 <section class="chat-page">
   <div class="chat-shell">
     <div class="chat-toolbar">
-      <h1>Диалог</h1>
+      <h1>{{ conversation.title|default:"Диалог" }}</h1>
       <a href="{% url 'chat:inbox' %}">← Все диалоги</a>
     </div>
     <div class="messages">
@@ -17,8 +17,11 @@
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
       {{ form.text }}
-      {{ form.file }}
-      <button class="button button--small" type="submit">Отправить ↗</button>
+      <label class="file-button" title="Прикрепить файл">
+        <span aria-hidden="true">＋</span> Файл
+        {{ form.file }}
+      </label>
+      <button class="button button--small send-button" type="submit">Отправить ↗</button>
     </form>
   </div>
 </section>

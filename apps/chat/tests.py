@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .models import Conversation
-from .services import get_or_create_dialog, mark_read, send_message, unread_count
+from .services import create_conversation, delete_message, get_or_create_dialog, mark_read, send_message, unread_count
 
 
 class ChatServicesTests(TestCase):
@@ -44,6 +44,34 @@ class ChatServicesTests(TestCase):
             file=SimpleUploadedFile("note.pdf", b"no"),
         )
         self.assertEqual(message.text, "")
+        image_message = send_message(
+            self.dialog,
+            self.alice,
+            file=SimpleUploadedFile("photo.png", b"\x89PNG\r\n\x1a\n"),
+        )
+        self.assertTrue(image_message.attachments.get().is_image)
+
+    def test_group_and_channel_include_creator(self):
+        group = create_conversation(
+            creator=self.alice,
+            kind=Conversation.GROUP,
+            title="Команда",
+            participants=[self.bob],
+        )
+        channel = create_conversation(
+            creator=self.alice,
+            kind=Conversation.CHANNEL,
+            title="Новости",
+        )
+        self.assertEqual(group.participants.count(), 2)
+        self.assertEqual(channel.participants.get(), self.alice)
+
+    def test_only_sender_can_delete_message(self):
+        message = send_message(self.dialog, self.alice, "Удаляем")
+        delete_message(message, self.alice)
+        self.assertFalse(self.dialog.messages.filter(pk=message.pk).exists())
+        with self.assertRaises(PermissionDenied):
+            delete_message(send_message(self.dialog, self.alice, "Чужой"), self.bob)
 
 
 class ChatViewsTests(TestCase):

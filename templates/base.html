@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{% static 'css/main.css' %}?v=6">
     <link rel="stylesheet" href="{% static 'css/music.css' %}?v=3">
     <script src="{% static 'js/player.js' %}?v=3" defer></script>
+    <script src="{% static 'js/chat.js' %}?v=1" defer></script>
 </head>
 <body{% if request.resolver_match.app_name == 'music' %} class="music-page"{% endif %}>
     <div class="app-shell">
@@ -25,6 +26,11 @@
                 <a class="side-link {% if request.resolver_match.app_name == 'music' %}is-active{% endif %}" href="{% url 'music:library' %}">
                     <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg><span>Музыка</span>
                 </a>
+                {% if user.is_authenticated %}
+                    <a class="side-link {% if request.resolver_match.app_name == 'chat' %}is-active{% endif %}" href="{% url 'chat:inbox' %}">
+                        <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4V5Z"></path><path d="M8 9h8M8 13h5"></path></svg><span>Сообщения{% if chat_unread_count %}<b class="chat-badge">{{ chat_unread_count }}</b>{% endif %}</span>
+                    </a>
+                {% endif %}
                 {% if user.is_authenticated %}
                     <a class="side-link {% if request.resolver_match.view_name == 'accounts:user_directory' %}is-active{% endif %}" href="{% url 'accounts:user_directory' %}">
                         <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3 20v-1a6 6 0 0 1 12 0v1M17 8a3 3 0 0 1 0 6m1 2a5 5 0 0 1 3 4"></path></svg><span>Добавить друзей</span>
