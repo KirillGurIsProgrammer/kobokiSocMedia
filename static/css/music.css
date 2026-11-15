@@ -218,3 +218,15 @@
     .music-page *::before,
     .music-page *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+.track-upload-list { display: grid; gap: 8px; }
+.track-upload-list[hidden] { display: none; }
+.track-upload-row { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.track-upload-filename { margin: 0 0 8px; overflow-wrap: anywhere; color: var(--muted); font-size: 12px; font-weight: 400; }
+.track-upload-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.track-upload-field { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
+.track-upload-field input { width: 100%; min-width: 0; }
+
+@media (max-width: 460px) {
+    .track-upload-fields { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+}

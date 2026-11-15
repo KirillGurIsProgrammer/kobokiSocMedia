@@ -1,6 +1,53 @@
 from django import forms
+from django.core.exceptions import ValidationError
 
+from apps.core.validators import validate_audio
 from .models import Album, MusicSettings, Playlist, Track
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        if isinstance(data, (list, tuple)):
+            if not data:
+                return super().clean(None, initial)
+            return [super(MultipleFileField, self).clean(item, initial) for item in data]
+        return [super().clean(data, initial)]
+
+
+class TrackUploadForm(forms.Form):
+    audio_files = MultipleFileField(
+        label="Аудиофайлы",
+        widget=MultipleFileInput(attrs={"accept": ".mp3,.wav,.ogg", "multiple": True}),
+    )
+    album = forms.ModelChoiceField(
+        label="Альбом",
+        queryset=Album.objects.none(),
+        required=False,
+        empty_label="Без альбома",
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["album"].queryset = (
+            Album.objects.filter(owner=user) if user else Album.objects.none()
+        )
+
+    def clean_audio_files(self):
+        files = self.cleaned_data["audio_files"]
+        for audio_file in files:
+            try:
+                validate_audio(audio_file)
+            except ValidationError as error:
+                raise forms.ValidationError(
+                    f"{audio_file.name}: {'; '.join(error.messages)}"
+                ) from error
+        return files
 
 
 class TrackForm(forms.ModelForm):

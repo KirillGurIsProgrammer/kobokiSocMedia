@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import Count, Q
 import json
 
@@ -11,7 +12,15 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from . import services
-from .forms import AlbumForm, MusicSettingsForm, PlaylistForm, PlaylistTrackForm, ReviewForm, TrackForm
+from .forms import (
+    AlbumForm,
+    MusicSettingsForm,
+    PlaylistForm,
+    PlaylistTrackForm,
+    ReviewForm,
+    TrackForm,
+    TrackUploadForm,
+)
 from .models import Album, PlaylistTrack, SavedPlaylist, Track
 
 User = get_user_model()
@@ -51,7 +60,7 @@ def user_music(request, username):
 
 @login_required
 def track_upload(request):
-    if request.method == "POST":
+    if request.method == "POST" and request.FILES.get("audio_file"):
         form = TrackForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             data = form.cleaned_data
@@ -64,8 +73,48 @@ def track_upload(request):
             )
             messages.success(request, "Трек загружен.")
             return redirect(track)
+        return render(
+            request,
+            "music/track_form.html",
+            {"form": form, "legacy_upload": True},
+        )
+
+    if request.method == "POST":
+        form = TrackUploadForm(request.POST, request.FILES, user=request.user)
+        if form.is_valid():
+            album = form.cleaned_data["album"]
+            uploads = []
+            for index, audio_file in enumerate(form.cleaned_data["audio_files"]):
+                parsed_artist, parsed_title = services.parse_track_filename(audio_file.name)
+                title = request.POST.get(f"title_{index}", "").strip() or parsed_title
+                artist = request.POST.get(f"artist_{index}", "").strip() or parsed_artist
+                candidate = Track(
+                    owner=request.user,
+                    title=title,
+                    artist=artist,
+                    album=album,
+                    audio_file=audio_file,
+                )
+                try:
+                    candidate.full_clean()
+                except ValidationError as error:
+                    messages.error(request, "; ".join(error.messages))
+                    return render(request, "music/track_form.html", {"form": form})
+                uploads.append((title, artist, audio_file))
+
+            with transaction.atomic():
+                for title, artist, audio_file in uploads:
+                    services.create_track(
+                        request.user,
+                        title=title,
+                        artist=artist,
+                        album=album,
+                        audio_file=audio_file,
+                    )
+            messages.success(request, f"Загружено треков: {len(uploads)}.")
+            return redirect("music:library")
     else:
-        form = TrackForm(user=request.user)
+        form = TrackUploadForm(user=request.user)
     return render(request, "music/track_form.html", {"form": form})
 
 

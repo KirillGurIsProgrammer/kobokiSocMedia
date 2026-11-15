@@ -33,7 +33,7 @@ class Track(models.Model):
         Album, null=True, blank=True, on_delete=models.SET_NULL, related_name="tracks"
     )
     title = models.CharField("Title", max_length=100)
-    artist = models.CharField("Artist", max_length=100)
+    artist = models.CharField("Artist", max_length=100, blank=True)
     audio_file = models.FileField(
         "Audio file", upload_to="tracks/", validators=[validate_audio]
     )

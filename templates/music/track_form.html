@@ -16,34 +16,48 @@
         {{ form.non_field_errors }}
 
         <div class="track-form-fields">
-            <div class="track-field">
-                {{ form.title.label_tag }}
-                {{ form.title }}
-                {{ form.title.errors }}
-            </div>
-            <div class="track-field">
-                {{ form.artist.label_tag }}
-                {{ form.artist }}
-                {{ form.artist.errors }}
-            </div>
-            <div class="track-field">
-                {{ form.album.label_tag }}
-                {{ form.album }}
-                {{ form.album.errors }}
-            </div>
-            <div class="track-field">
-                {{ form.audio_file.label_tag }}
-                <div class="file-picker">
-                    {{ form.audio_file }}
-                    <label class="file-picker-trigger" for="id_audio_file">
-                        <svg aria-hidden="true"><use href="#icon-upload"></use></svg>
-                        <span>{% if track %}Выбрать новый файл{% else %}Выбрать аудиофайл{% endif %}</span>
-                    </label>
-                    <span class="file-picker-name" data-file-name aria-live="polite">{% if track and track.audio_file %}{{ track.audio_file.name|cut:"tracks/" }}{% else %}Файл не выбран{% endif %}</span>
+            {% if track or legacy_upload %}
+                <div class="track-field">
+                    {{ form.title.label_tag }}{{ form.title }}{{ form.title.errors }}
                 </div>
-                <p class="file-picker-hint">MP3, WAV или FLAC</p>
-                {{ form.audio_file.errors }}
-            </div>
+                <div class="track-field">
+                    {{ form.artist.label_tag }}{{ form.artist }}{{ form.artist.errors }}
+                </div>
+                <div class="track-field">
+                    {{ form.album.label_tag }}{{ form.album }}{{ form.album.errors }}
+                </div>
+                <div class="track-field">
+                    {{ form.audio_file.label_tag }}
+                    <div class="file-picker">
+                        {{ form.audio_file }}
+                        <label class="file-picker-trigger" for="id_audio_file">
+                            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V4m-5 5 5-5 5 5M4 17v3h16v-3"></path></svg>
+                            <span>{% if track %}Выбрать новый файл{% else %}Выбрать аудиофайл{% endif %}</span>
+                        </label>
+                        <span class="file-picker-name" data-file-name aria-live="polite">{% if track.audio_file %}{{ track.audio_file.name|cut:"tracks/" }}{% else %}Файл не выбран{% endif %}</span>
+                    </div>
+                    <p class="file-picker-hint">MP3, WAV или OGG</p>
+                    {{ form.audio_file.errors }}
+                </div>
+            {% else %}
+                <div class="track-field">
+                    {{ form.album.label_tag }}{{ form.album }}{{ form.album.errors }}
+                </div>
+                <div class="track-field">
+                    {{ form.audio_files.label_tag }}
+                    <div class="file-picker">
+                        {{ form.audio_files }}
+                        <label class="file-picker-trigger" for="id_audio_files">
+                            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V4m-5 5 5-5 5 5M4 17v3h16v-3"></path></svg>
+                            <span>Выбрать аудиофайлы</span>
+                        </label>
+                        <span class="file-picker-name" data-file-name aria-live="polite">Файлы не выбраны</span>
+                    </div>
+                    <p class="file-picker-hint">Можно выбрать несколько файлов MP3, WAV или OGG</p>
+                    {{ form.audio_files.errors }}
+                </div>
+                <div class="track-upload-list" data-track-upload-list hidden></div>
+            {% endif %}
         </div>
 
         <div class="track-form-actions">
@@ -52,5 +66,5 @@
         </div>
     </form>
 </section>
-<script src="{% static 'js/form-ui.js' %}" defer></script>
+<script src="{% static 'js/form-ui.js' %}?v=2" defer></script>
 {% endblock %}

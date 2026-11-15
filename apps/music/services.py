@@ -37,8 +37,9 @@ _TRACK_SEPARATOR = re.compile(r"\s[-–—]\s")
 
 def parse_track_filename(filename):
     """Return artist and title parsed from a track file's name."""
-    basename = str(filename or "").replace("\\", "/").rsplit("/", 1)[-1]
-    stem = os.path.splitext(basename)[0]
+    stem = os.path.splitext(str(filename or "").replace("\\", "/"))[0]
+    if not _TRACK_URL.search(stem):
+        stem = stem.rsplit("/", 1)[-1]
     stem = stem.replace("_", " ")
     stem = _TRACK_NOISE.sub(" ", stem)
     stem = _TRACK_URL.sub(" ", stem)

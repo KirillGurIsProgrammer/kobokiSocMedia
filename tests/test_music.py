@@ -33,6 +33,74 @@ class ValidatorTests(SimpleTestCase):
             validate_audio(SimpleUploadedFile("a.mp3", b"x" * (21 * 1024 * 1024)))
 
 
+class TrackFilenameParserTests(SimpleTestCase):
+    def assert_parsed(self, filename, expected):
+        self.assertEqual(services.parse_track_filename(filename), expected)
+
+    def test_hyphen_separator(self):
+        self.assert_parsed("Artist - Track.mp3", ("Artist", "Track"))
+
+    def test_en_dash_separator(self):
+        self.assert_parsed("Artist – Track.wav", ("Artist", "Track"))
+
+    def test_em_dash_separator(self):
+        self.assert_parsed("Artist — Track.ogg", ("Artist", "Track"))
+
+    def test_underscores_become_spaces(self):
+        self.assert_parsed("Northern_Lights - Blue_Room.mp3", ("Northern Lights", "Blue Room"))
+
+    def test_leading_number_with_period(self):
+        self.assert_parsed("01. Artist - Track.mp3", ("Artist", "Track"))
+
+    def test_leading_number_with_hyphen(self):
+        self.assert_parsed("01 - Artist - Track.mp3", ("Artist", "Track"))
+
+    def test_leading_number_without_space(self):
+        self.assert_parsed("07—Artist — Track.flac", ("Artist", "Track"))
+
+    def test_official_video_annotation_is_removed(self):
+        self.assert_parsed("Artist - Track (Official Video).mp3", ("Artist", "Track"))
+
+    def test_bracketed_bitrate_is_removed(self):
+        self.assert_parsed("Artist - Track [320kbps].mp3", ("Artist", "Track"))
+
+    def test_bitrate_annotation_with_spaces_is_removed(self):
+        self.assert_parsed("Artist - Track (320 kbps, HQ).mp3", ("Artist", "Track"))
+
+    def test_protocol_url_is_removed(self):
+        self.assert_parsed("Artist - Track https://example.com/watch.mp3", ("Artist", "Track"))
+
+    def test_www_address_is_removed(self):
+        self.assert_parsed("Artist - Track www.example.org/file.mp3", ("Artist", "Track"))
+
+    def test_russian_names(self):
+        self.assert_parsed("Привычка — Ночной город.mp3", ("Привычка", "Ночной город"))
+
+    def test_russian_underscores(self):
+        self.assert_parsed("Кино_Группа - Пачка_сигарет.mp3", ("Кино Группа", "Пачка сигарет"))
+
+    def test_missing_artist(self):
+        self.assert_parsed("Только название.mp3", ("", "Только название"))
+
+    def test_feat_remains_in_title(self):
+        self.assert_parsed("Artist - Track feat. Guest.mp3", ("Artist", "Track feat. Guest"))
+
+    def test_ft_remains_in_title(self):
+        self.assert_parsed("Artist – Track ft. Guest.wav", ("Artist", "Track ft. Guest"))
+
+    def test_windows_path_is_reduced_to_filename(self):
+        self.assert_parsed(r"C:\\Music\\Artist - Track.MP3", ("Artist", "Track"))
+
+    def test_repeated_spaces_are_collapsed(self):
+        self.assert_parsed("  Artist   -   Track   .mp3", ("Artist", "Track"))
+
+    def test_multiple_annotations_are_removed(self):
+        self.assert_parsed(
+            "Artist - Track (Official Video) [320kbps].mp3",
+            ("Artist", "Track"),
+        )
+
+
 @override_settings(MEDIA_ROOT=TEMP_MEDIA)
 class MusicTests(TestCase):
     @classmethod
@@ -77,6 +145,31 @@ class MusicTests(TestCase):
         self.assertContains(response, "Рекомендации")
         self.assertContains(response, "Мои треки и альбомы")
         self.assertEqual(response.content.count(b"<audio "), 1)
+
+    def test_upload_accepts_multiple_files_and_fills_empty_metadata(self):
+        self.client.login(username="alice", password="pass12345")
+        response = self.client.post(
+            reverse("music:track_upload"),
+            {
+                "album": "",
+                "title_0": "",
+                "artist_0": "",
+                "title_1": "Правленое название",
+                "artist_1": "",
+                "audio_files": [
+                    SimpleUploadedFile("02. Сцена - Ночь (Official Video).mp3", b"x"),
+                    SimpleUploadedFile("Только_Название.ogg", b"y"),
+                ],
+            },
+        )
+
+        self.assertRedirects(response, reverse("music:library"))
+        uploaded = list(Track.objects.filter(owner=self.alice).exclude(pk=self.track.pk))
+        self.assertEqual(len(uploaded), 2)
+        first = Track.objects.get(owner=self.alice, title="Ночь")
+        self.assertEqual(first.artist, "Сцена")
+        second = Track.objects.get(owner=self.alice, title="Правленое название")
+        self.assertEqual(second.artist, "")
 
     def test_like_toggles_and_keeps_one_user_track_pair(self):
         liked, count = services.toggle_like(self.bob, self.track)
