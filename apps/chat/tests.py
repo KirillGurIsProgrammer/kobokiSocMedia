@@ -61,9 +61,9 @@ class ChatViewsTests(TestCase):
         self.client.force_login(other)
         self.assertEqual(self.client.get(reverse("chat:dialog", args=[self.dialog.pk])).status_code, 404)
 
-    def test_home_page_is_available(self):
+    def test_anonymous_home_page_redirects_to_site_login(self):
         response = self.client.get("/")
-        self.assertEqual(response.status_code, 200)
+        self.assertRedirects(response, "/accounts/login/?next=/")
 
     def test_anonymous_user_is_sent_to_site_login(self):
         response = self.client.get(reverse("chat:inbox"))
@@ -72,4 +72,4 @@ class ChatViewsTests(TestCase):
     def test_site_login_page_is_not_admin_login(self):
         response = self.client.get("/accounts/login/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "С возвращением")
+        self.assertContains(response, "Войти в Koboki")

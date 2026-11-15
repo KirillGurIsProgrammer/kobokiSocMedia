@@ -2,6 +2,7 @@
 {% listen_along_session as listen_session %}
 <section class="music-player" data-music-player data-now-playing-url="{% url 'music:now_playing_update' %}" aria-label="Музыкальный плеер">
     <audio id="music-audio" preload="metadata"></audio>
+    <div class="music-toast" data-music-toast role="status" aria-live="polite" hidden></div>
     <div class="listen-along-banner" data-listen-along-banner
         {% if not listen_session %}hidden{% else %}
             data-host="{{ listen_session.host.username }}"
@@ -15,23 +16,23 @@
     </div>
     <p class="listen-along-notice" data-listen-along-notice hidden></p>
     <div class="music-player-track">
-        <div class="music-player-cover" data-player-cover aria-hidden="true"><span>♫</span></div>
+        <div class="music-player-cover" data-player-cover aria-hidden="true"><svg class="player-note-icon" viewBox="0 0 24 24" fill="none"><path d="M9 18V5l11-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="17" cy="16" r="3"></circle></svg></div>
         <div class="music-player-copy">
             <strong data-player-title>Выберите трек</strong>
             <span data-player-artist>Музыка Koboki</span>
         </div>
         <form class="music-player-like-form" method="post" action="{% url 'music:toggle_like' 0 %}" data-player-like-form data-like-form data-track-id="">
             {% csrf_token %}
-            <button class="music-player-icon" type="submit" data-player-like aria-label="Нравится" title="Нравится" disabled aria-pressed="false">♡</button>
+            <button class="music-player-icon" type="submit" data-player-like aria-label="Нравится" title="Нравится" disabled aria-pressed="false"><svg class="player-heart-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.5 8.7c0 4.2-8.5 10-8.5 10s-8.5-5.8-8.5-10a4.5 4.5 0 0 1 8.5-2.2 4.5 4.5 0 0 1 8.5 2.2Z"></path></svg></button>
             <span class="music-player-like-count" data-like-count></span>
         </form>
     </div>
 
     <div class="music-player-controls">
         <div class="music-player-buttons">
-            <button type="button" data-player-previous aria-label="Предыдущий трек" title="Предыдущий трек">|‹</button>
-            <button class="music-player-play" type="button" data-player-toggle aria-label="Воспроизвести" title="Воспроизвести">▶</button>
-            <button type="button" data-player-next aria-label="Следующий трек" title="Следующий трек">›|</button>
+            <button type="button" data-player-previous aria-label="Предыдущий трек" title="Предыдущий трек"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5v14M19 6l-9 6 9 6V6Z"></path></svg></button>
+            <button class="music-player-play" type="button" data-player-toggle aria-label="Воспроизвести" title="Воспроизвести"><svg class="icon-play" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m8 5 12 7-12 7V5Z" fill="currentColor" stroke="none"></path></svg><svg class="icon-pause" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 5v14M16 5v14"></path></svg></button>
+            <button type="button" data-player-next aria-label="Следующий трек" title="Следующий трек"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 5v14M5 6l9 6-9 6V6Z"></path></svg></button>
         </div>
         <div class="music-player-timeline">
             <span data-player-current>0:00</span>
@@ -42,7 +43,7 @@
 
     <div class="music-player-extras">
         <label class="music-volume" aria-label="Громкость">
-            <span aria-hidden="true">◖</span>
+            <svg class="player-volume-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 10v4h4l5 4V6l-5 4H4Z"></path><path d="M17 9a5 5 0 0 1 0 6m3-9a9 9 0 0 1 0 12"></path></svg>
             <input type="range" min="0" max="1" step="0.01" value="0.8" data-player-volume>
         </label>
         <button class="music-player-icon" type="button" data-queue-toggle aria-expanded="false" aria-controls="music-queue">Очередь</button>

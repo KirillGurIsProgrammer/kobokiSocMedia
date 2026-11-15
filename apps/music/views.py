@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import Count, Q
 import json
 
 from django.http import Http404, JsonResponse
@@ -18,12 +19,21 @@ User = get_user_model()
 
 def _render_library(request, owner):
     q = request.GET.get("q", "").strip()
+    recent_tracks = services.with_like_data(
+        Track.objects.filter(owner=owner).select_related("owner", "album"), request.user
+    ).order_by("-uploaded_at", "-pk")
+    if q:
+        recent_tracks = recent_tracks.filter(Q(title__icontains=q) | Q(artist__icontains=q))
     return render(request, "music/track_list.html", {
         "owner": owner,
         "is_mine": owner == request.user,
         "tracks": services.search_tracks(owner, q, user=request.user),
         "discover_tracks": services.get_discover_tracks(request.user, q),
-        "albums": owner.albums.all(),
+        "recent_tracks": recent_tracks[:5],
+        "my_playlists": services.list_user_playlists(request.user)[:3] if owner == request.user else [],
+        "show_track_menu": owner == request.user,
+        "show_all_recommendations": request.GET.get("all") == "recommendations",
+        "albums": owner.albums.annotate(track_count=Count("tracks")),
         "q": q,
     })
 

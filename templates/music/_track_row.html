@@ -7,7 +7,7 @@
         data-track-artist="{{ track.artist }}"
         data-track-cover="{% if track.album and track.album.cover %}{{ track.album.cover.url }}{% endif %}"
         data-playlist-id="{{ playlist.pk|default:'' }}"
-        aria-label="Воспроизвести: {{ track.title }} — {{ track.artist }}">▶</button>
+        aria-label="Воспроизвести: {{ track.title }} — {{ track.artist }}"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 10 6-10 6V6Z" fill="currentColor" stroke="none"></path></svg></button>
     <div class="music-track-copy">
         <a href="{{ track.get_absolute_url }}"><strong>{{ track.title }}</strong></a>
         <span>{{ track.artist }}{% if track.album %} · <a href="{{ track.album.get_absolute_url }}">{{ track.album.title }}</a>{% endif %}</span>
@@ -15,9 +15,28 @@
     <form class="music-like-form" method="post" action="{% url 'music:toggle_like' track.pk %}" data-like-form data-track-id="{{ track.pk }}">
         {% csrf_token %}
         <button class="music-like-button{% if track.liked_by_user %} is-liked{% endif %}" type="submit" aria-pressed="{{ track.liked_by_user|yesno:'true,false' }}" aria-label="{% if track.liked_by_user %}Убрать из понравившихся{% else %}Нравится{% endif %}">
-            {% if track.liked_by_user %}♥{% else %}♡{% endif %}
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.5 8.7c0 4.2-8.5 10-8.5 10s-8.5-5.8-8.5-10a4.5 4.5 0 0 1 8.5-2.2 4.5 4.5 0 0 1 8.5 2.2Z"></path></svg>
         </button>
         <span class="music-like-count" data-like-count>{{ track.like_count|default:0 }}</span>
     </form>
-    <span class="music-track-owner">{{ track.owner.username }}</span>
+    {% if show_track_menu %}
+        <details class="music-track-menu">
+            <summary aria-label="Действия с треком {{ track.title }}" title="Действия с треком"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg></summary>
+            <div class="music-track-menu-panel">
+                <button type="button" data-enqueue-track>Добавить в очередь</button>
+                <button type="button" data-copy-track-link data-track-url="{{ track.get_absolute_url }}">Скопировать ссылку</button>
+                {% if my_playlists %}
+                    <span class="music-track-menu-label">Добавить в плейлист</span>
+                    {% for playlist in my_playlists %}
+                        <form method="post" action="{% url 'music:playlist_add_track' playlist.pk %}">
+                            {% csrf_token %}<input type="hidden" name="track" value="{{ track.pk }}">
+                            <button type="submit">{{ playlist.title }}</button>
+                        </form>
+                    {% endfor %}
+                {% else %}
+                    <a href="{% url 'music:playlist_create' %}">Создать плейлист</a>
+                {% endif %}
+            </div>
+        </details>
+    {% endif %}
 </article>

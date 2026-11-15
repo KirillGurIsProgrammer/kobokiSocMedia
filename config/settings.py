@@ -145,7 +145,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LOGIN_URL = env("LOGIN_URL", "/accounts/login/")
 LOGIN_REDIRECT_URL = env("LOGIN_REDIRECT_URL", "/")
-LOGOUT_REDIRECT_URL = env("LOGOUT_REDIRECT_URL", "/")
+LOGOUT_REDIRECT_URL = env("LOGOUT_REDIRECT_URL", LOGIN_URL)
 
 
 # ---------------------------------------------------------------------------

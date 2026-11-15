@@ -27,19 +27,16 @@ class Post(models.Model):
         "Название трека",
         max_length=200,
         blank=True,
-        editable=False,
     )
     track_artist = models.CharField(
         "Исполнитель",
         max_length=200,
         blank=True,
-        editable=False,
     )
     track_url = models.URLField(
-        "Старая ссылка на трек",
+        "Ссылка на трек",
         max_length=500,
         blank=True,
-        editable=False,
     )
     track = models.ForeignKey(
         "music.Track",
@@ -58,6 +55,21 @@ class Post(models.Model):
         super().clean()
         if self.text and not self.text.strip():
             raise ValidationError({"text": "Post text cannot be empty."})
+        track_fields = (self.track_title, self.track_artist, self.track_url)
+        if any(track_fields) and not all(track_fields):
+            raise ValidationError(
+                {
+                    "track_title": (
+                        "To attach a track, provide its title, artist, and link."
+                    ),
+                    "track_artist": (
+                        "To attach a track, provide its title, artist, and link."
+                    ),
+                    "track_url": (
+                        "To attach a track, provide its title, artist, and link."
+                    ),
+                }
+            )
 
     def __str__(self):
         return f"{self.author}: {self.text[:50]}"

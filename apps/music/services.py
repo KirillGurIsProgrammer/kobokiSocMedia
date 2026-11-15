@@ -1,4 +1,7 @@
 """Music business rules called by the views."""
+import os
+import re
+
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Exists, OuterRef, Q
@@ -18,6 +21,37 @@ from .models import (
     SavedPlaylist,
     Track,
 )
+
+
+_TRACK_NOISE = re.compile(
+    r"\s*[\(\[\{][^\)\]\}]*(?:official\s+video|(?:\d+\s*)?kbps)[^\)\]\}]*[\)\]\}]",
+    re.IGNORECASE,
+)
+_TRACK_URL = re.compile(
+    r"(?:https?://|www\.)\S+|\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/\S*)?",
+    re.IGNORECASE,
+)
+_TRACK_NUMBER = re.compile(r"^\s*\d+\s*(?:[.\-–—]\s*|\s+)")
+_TRACK_SEPARATOR = re.compile(r"\s[-–—]\s")
+
+
+def parse_track_filename(filename):
+    """Return artist and title parsed from a track file's name."""
+    basename = str(filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+    stem = os.path.splitext(basename)[0]
+    stem = stem.replace("_", " ")
+    stem = _TRACK_NOISE.sub(" ", stem)
+    stem = _TRACK_URL.sub(" ", stem)
+    stem = _TRACK_NUMBER.sub("", stem)
+    stem = re.sub(r"\s+", " ", stem).strip()
+
+    separator = _TRACK_SEPARATOR.search(stem)
+    if separator is None:
+        return "", stem
+
+    artist = stem[:separator.start()].strip()
+    title = stem[separator.end():].strip()
+    return artist, title
 
 
 def with_like_data(queryset, user):

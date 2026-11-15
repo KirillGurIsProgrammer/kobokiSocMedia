@@ -25,12 +25,29 @@
     let restoring = false;
     let joinedHost = null;
     let syncInFlight = false;
+    let toastTimer = 0;
 
     const formatTime = (seconds) => {
         if (!Number.isFinite(seconds)) return "0:00";
         const value = Math.floor(seconds);
         return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, "0")}`;
     };
+
+    function showToast(message) {
+        const toast = player.querySelector("[data-music-toast]");
+        if (!toast) return;
+        toast.textContent = message;
+        toast.hidden = false;
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => { toast.hidden = true; }, 2400);
+    }
+
+    function closeTrackMenu(element) {
+        const menu = element.closest("details");
+        if (!menu) return;
+        menu.open = false;
+        menu.querySelector("summary")?.focus();
+    }
 
     function saveState() {
         if (!activeTrack) return;
@@ -103,17 +120,14 @@
         if (track.cover) {
             cover.style.backgroundImage = `url("${CSS.escape(track.cover)}")`;
             cover.classList.add("has-cover");
-            cover.querySelector("span").hidden = true;
         } else {
             cover.style.backgroundImage = "";
             cover.classList.remove("has-cover");
-            cover.querySelector("span").hidden = false;
         }
         seek.disabled = false;
         playerLikeForm.dataset.trackId = track.id;
         playerLikeForm.action = playerLikeUrl.replace(/0\/like\/$/, `${track.id}/like/`);
         playerLikeButton.disabled = false;
-        playerLikeButton.textContent = track.liked ? "♥" : "♡";
         playerLikeButton.classList.toggle("is-liked", Boolean(track.liked));
         playerLikeButton.setAttribute("aria-pressed", String(Boolean(track.liked)));
         playerLikeButton.setAttribute("aria-label", track.liked ? "Убрать из понравившихся" : "Нравится");
@@ -313,6 +327,36 @@
     });
 
     document.addEventListener("click", (event) => {
+        const enqueueButton = event.target.closest("[data-enqueue-track]");
+        if (enqueueButton) {
+            const row = enqueueButton.closest("[data-track-id]");
+            const playButton = row?.querySelector("[data-track-play]");
+            if (playButton) {
+                const track = trackFromButton(playButton);
+                if (!queue.some((item) => item.id === track.id)) {
+                    queue.push(track);
+                    renderQueue();
+                    saveState();
+                }
+                showToast("Трек добавлен в очередь");
+            }
+            closeTrackMenu(enqueueButton);
+            return;
+        }
+        const copyButton = event.target.closest("[data-copy-track-link]");
+        if (copyButton) {
+            const url = new URL(copyButton.dataset.trackUrl, location.origin).href;
+            if (navigator.clipboard?.writeText) {
+                navigator.clipboard.writeText(url).then(
+                    () => showToast("Ссылка скопирована"),
+                    () => showToast("Не удалось скопировать ссылку"),
+                );
+            } else {
+                showToast("Копирование недоступно в этом браузере");
+            }
+            closeTrackMenu(copyButton);
+            return;
+        }
         const playlistButton = event.target.closest("[data-play-playlist]");
         if (playlistButton) {
             if (joinedHost) leaveListenAlong();
@@ -385,7 +429,6 @@
                 if (likeForm.dataset.trackId !== id) return;
                 const button = likeForm.querySelector("button[type=submit]");
                 if (!button) return;
-                button.textContent = result.liked ? "♥" : "♡";
                 button.classList.toggle("is-liked", result.liked);
                 button.setAttribute("aria-pressed", String(result.liked));
                 button.setAttribute("aria-label", result.liked ? "Убрать из понравившихся" : "Нравится");
@@ -436,8 +479,8 @@
     }
 
     window.addEventListener("popstate", () => navigate(location.href, false));
-    audio.addEventListener("play", () => { toggle.textContent = "Ⅱ"; toggle.setAttribute("aria-label", "Пауза"); saveState(); sendNowPlaying(true); });
-    audio.addEventListener("pause", () => { toggle.textContent = "▶"; toggle.setAttribute("aria-label", "Воспроизвести"); saveState(); sendNowPlaying(false); });
+    audio.addEventListener("play", () => { toggle.classList.add("is-playing"); toggle.setAttribute("aria-label", "Пауза"); saveState(); sendNowPlaying(true); });
+    audio.addEventListener("pause", () => { toggle.classList.remove("is-playing"); toggle.setAttribute("aria-label", "Воспроизвести"); saveState(); sendNowPlaying(false); });
     audio.addEventListener("seeked", () => sendNowPlaying(!audio.paused));
     audio.addEventListener("timeupdate", () => {
         currentTime.textContent = formatTime(audio.currentTime);
@@ -465,11 +508,25 @@
     });
     document.addEventListener("keydown", (event) => {
         const target = event.target;
-        if (event.code !== "Space" || target.matches("input, textarea, select, button, [contenteditable='true']")) return;
-        event.preventDefault();
-        if (!activeTrack || joinedHost) return;
-        if (audio.paused) audio.play().catch(() => {});
-        else audio.pause();
+        if (target.matches("input, textarea, select, button, summary, [contenteditable='true']")) return;
+        if (event.code === "Space") {
+            event.preventDefault();
+            if (!activeTrack || joinedHost) return;
+            if (audio.paused) audio.play().catch(() => {});
+            else audio.pause();
+        } else if (event.code === "ArrowLeft" || event.code === "ArrowRight") {
+            if (!activeTrack || joinedHost) return;
+            event.preventDefault();
+            audio.currentTime = Math.max(0, Math.min(audio.duration || Infinity, audio.currentTime + (event.code === "ArrowRight" ? 5 : -5)));
+        } else if (event.code === "ArrowUp" || event.code === "ArrowDown") {
+            event.preventDefault();
+            audio.volume = Math.max(0, Math.min(1, audio.volume + (event.code === "ArrowUp" ? 0.05 : -0.05)));
+            player.querySelector("[data-player-volume]").value = String(audio.volume);
+            saveState();
+        } else if (event.key.toLowerCase() === "m") {
+            audio.muted = !audio.muted;
+            showToast(audio.muted ? "Звук выключен" : "Звук включён");
+        }
     });
     window.addEventListener("beforeunload", () => {
         sendNowPlaying(false, true);
