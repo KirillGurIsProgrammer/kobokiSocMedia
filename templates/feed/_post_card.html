@@ -1,4 +1,4 @@
-<article class="post-card">
+<article class="post-card" id="post-{{ post.pk }}">
     <header class="post-header">
         <a class="post-author" href="{% url 'accounts:profile' post.author.username %}">
             <span class="post-avatar">
@@ -51,9 +51,44 @@
         {% endif %}
     </div>
     <footer class="post-footer">
-        <a href="{% url 'feed:post_detail' post.pk %}">Открыть публикацию <span aria-hidden="true">↗</span></a>
+        <form class="post-like-form" method="post" action="{% url 'feed:post_toggle_like' post.pk %}" data-post-like-form>
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}#post-{{ post.pk }}">
+            <button class="post-like-button{% if post.liked_by_user %} is-liked{% endif %}" type="submit"
+                aria-pressed="{{ post.liked_by_user|yesno:'true,false' }}">
+                <span aria-hidden="true">{% if post.liked_by_user %}♥{% else %}♡{% endif %}</span>
+                Нравится <span class="post-social-count" data-like-count>{{ post.like_count|default:0 }}</span>
+            </button>
+        </form>
+        <a class="post-comment-link" href="{% url 'feed:post_detail' post.pk %}#comments">
+            Комментарии <span class="post-social-count" data-comment-count>{{ post.comment_count|default:0 }}</span>
+        </a>
+        <a class="post-open-link" href="{% url 'feed:post_detail' post.pk %}">Открыть публикацию <span aria-hidden="true">↗</span></a>
         {% if user.is_authenticated and user.pk == post.author_id %}
             <a href="{% url 'feed:post_edit' post.pk %}">Редактировать</a>
         {% endif %}
     </footer>
+    {% if not hide_comments %}
+        <section class="post-comments-preview" aria-label="Комментарии к публикации" data-comment-preview>
+            {% for comment in post.recent_comments %}
+                <article class="post-comment" data-comment-item>
+                    <a href="{% url 'accounts:profile' comment.author.username %}" data-comment-author><strong>{{ comment.author.username }}</strong></a>
+                    <p>{{ comment.text|linebreaksbr }}</p>
+                </article>
+            {% endfor %}
+            {% if post.comment_count > 3 %}
+                <a class="post-all-comments" href="{% url 'feed:post_detail' post.pk %}#comments">Показать все комментарии</a>
+            {% endif %}
+            {% if user.is_authenticated %}
+                <form class="post-comment-form" method="post" action="{% url 'comments:add' post.pk %}" data-post-comment-form>
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}#post-{{ post.pk }}">
+                    <label class="music-visually-hidden" for="comment-{{ post.pk }}">Написать комментарий</label>
+                    <textarea id="comment-{{ post.pk }}" name="text" maxlength="1000" rows="2" placeholder="Написать комментарий…" required></textarea>
+                    <button class="button button--small" type="submit">Отправить</button>
+                    <p class="post-interaction-status" data-interaction-status aria-live="polite"></p>
+                </form>
+            {% endif %}
+        </section>
+    {% endif %}
 </article>

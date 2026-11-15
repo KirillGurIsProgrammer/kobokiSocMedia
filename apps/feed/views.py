@@ -1,8 +1,10 @@
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_http_methods
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST, require_http_methods
 
 from .forms import PostForm
 from .models import Post
@@ -11,7 +13,9 @@ from .services import (
     create_post,
     delete_post,
     get_feed_for,
+    posts_with_interactions,
     update_post,
+    toggle_post_like,
 )
 
 
@@ -58,10 +62,31 @@ def post_edit(request, post_id):
 
 def post_detail(request, post_id):
     post = get_object_or_404(
-        Post.objects.select_related("author"),
+        posts_with_interactions(
+            Post.objects.select_related("author"),
+            request.user,
+        ),
         pk=post_id,
     )
     return render(request, "feed/post_detail.html", {"post": post})
+
+
+@login_required
+@require_POST
+def post_toggle_like(request, post_id):
+    post = get_object_or_404(Post, pk=post_id)
+    liked = toggle_post_like(post=post, user=request.user)
+    like_count = post.likes.count()
+    if "application/json" in request.headers.get("Accept", ""):
+        return JsonResponse({"liked": liked, "like_count": like_count})
+    next_url = request.POST.get("next", "")
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(next_url)
+    return redirect("feed:post_detail", post_id=post.pk)
 
 
 @login_required

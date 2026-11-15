@@ -9,6 +9,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
+from apps.feed.services import posts_with_interactions
+
 from .forms import ProfileForm, RegistrationForm
 from .models import Follow
 from .services import can_edit_profile, follow, is_following, unfollow
@@ -68,7 +70,10 @@ def profile(request, username):
     profile_user = get_object_or_404(User, username=username)
     context = {
         "profile_user": profile_user,
-        "posts": profile_user.posts.select_related("author"),
+        "posts": posts_with_interactions(
+            profile_user.posts.select_related("author"),
+            request.user,
+        ),
         "followers_count": profile_user.followers.count(),
         "following_count": profile_user.following.count(),
         "is_following": is_following(request.user, profile_user),

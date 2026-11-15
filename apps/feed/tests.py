@@ -95,7 +95,7 @@ class FeedServiceTests(TestCase):
         other_post = Post.objects.create(author=self.other, text="Community post")
         follow(self.user, self.followed)
 
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(3):
             feed_entries = list(get_feed_for(self.user))
 
         self.assertCountEqual(
@@ -320,7 +320,7 @@ class FeedViewTests(TestCase):
         self.assertRedirects(response, reverse("feed:feed"))
         self.assertTrue(Post.objects.get(author=self.user).image.name.startswith("posts/"))
 
-    def test_post_detail_is_public_and_has_comment_integration_placeholder(self):
+    def test_post_detail_is_public_and_displays_comments(self):
         post = Post.objects.create(author=self.followed, text="Track notes")
 
         self.client.logout()
@@ -331,6 +331,68 @@ class FeedViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Track notes")
         self.assertContains(response, "Комментарии")
+        self.assertNotContains(response, "будет подключён")
+
+    def test_post_can_be_liked_and_unliked(self):
+        post = Post.objects.create(author=self.followed, text="Creator post")
+        url = reverse("feed:post_toggle_like", args=[post.pk])
+
+        liked_response = self.client.post(
+            url,
+            {"next": reverse("feed:feed")},
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(liked_response.status_code, 200)
+        self.assertEqual(liked_response.json(), {"liked": True, "like_count": 1})
+        self.assertTrue(post.likes.filter(user=self.user).exists())
+        self.assertContains(self.client.get(reverse("feed:feed")), "Нравится")
+
+        unliked_response = self.client.post(
+            url,
+            {"next": reverse("feed:feed")},
+            HTTP_ACCEPT="application/json",
+        )
+        self.assertEqual(unliked_response.json(), {"liked": False, "like_count": 0})
+        self.assertFalse(post.likes.filter(user=self.user).exists())
+
+    def test_post_like_requires_login(self):
+        post = Post.objects.create(author=self.followed, text="Creator post")
+        self.client.logout()
+
+        response = self.client.post(
+            reverse("feed:post_toggle_like", args=[post.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(post.likes.exists())
+
+    def test_comment_can_be_added_from_feed_without_leaving_it(self):
+        post = Post.objects.create(author=self.followed, text="Creator post")
+
+        response = self.client.post(
+            reverse("comments:add", args=[post.pk]),
+            {"text": "Great post", "next": reverse("feed:feed")},
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["text"], "Great post")
+        self.assertEqual(response.json()["comment_count"], 1)
+        self.assertTrue(post.comments.filter(author=self.user, text="Great post").exists())
+        self.assertContains(self.client.get(reverse("feed:feed")), "Great post")
+
+    def test_comment_fallback_redirects_back_to_post_anchor(self):
+        post = Post.objects.create(author=self.followed, text="Creator post")
+        feed_url = reverse("feed:feed")
+
+        response = self.client.post(
+            reverse("comments:add", args=[post.pk]),
+            {"text": "Great post", "next": f"{feed_url}#post-{post.pk}"},
+        )
+
+        self.assertRedirects(response, f"{feed_url}#post-{post.pk}")
+        self.assertTrue(post.comments.filter(author=self.user, text="Great post").exists())
 
     def test_only_author_can_delete_post(self):
         post = Post.objects.create(author=self.followed, text="Creator post")

@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% block title %}Публикация {{ post.author.username }} — Koboki{% endblock %}
 {% block content %}
-<article>
-  <h1>{{ post.author.username }}</h1>
-  <p>{{ post.text }}</p>
-  {% include "comments/_comments.html" with post=post %}
-</article>
+<section class="post-detail">
+    <a class="back-link" href="{% url 'feed:feed' %}">← Вернуться в ленту</a>
+    {% include "feed/_post_card.html" with post=post hide_comments=True %}
+    {% include "comments/_comments.html" with post=post %}
+</section>
 {% endblock %}

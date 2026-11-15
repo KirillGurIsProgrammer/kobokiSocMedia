@@ -208,7 +208,7 @@
 
     document.addEventListener("submit", (event) => {
         const form = event.target.closest("form");
-        if (!form || event.defaultPrevented || form.closest("[data-listen-along-join], [data-listen-along-leave], [data-like-form]")) return;
+        if (!form || event.defaultPrevented || form.matches("[data-post-like-form], [data-post-comment-form]") || form.closest("[data-listen-along-join], [data-listen-along-leave], [data-like-form]")) return;
         if (!appContent.contains(form) || form.matches("[data-no-ajax]")) return;
         if (formHasFiles(form)) return;
         const action = new URL(form.action || location.href, location.href);
