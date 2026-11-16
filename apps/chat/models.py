@@ -1,8 +1,12 @@
+from pathlib import PurePosixPath
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
 from core.validators import validate_attachment
+
+IMAGE_ATTACHMENT_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif"}
 
 
 class Conversation(models.Model):
@@ -39,3 +43,7 @@ class Attachment(models.Model):
     message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name="attachments")
     file = models.FileField(upload_to="chat/%Y/%m/%d/", validators=[validate_attachment])
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def is_image(self):
+        return PurePosixPath(self.file.name).suffix.lower() in IMAGE_ATTACHMENT_EXTENSIONS

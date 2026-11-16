@@ -5,6 +5,12 @@
   </div>
   {% if message.text %}<p class="message-text">{{ message.text }}</p>{% endif %}
   {% for attachment in message.attachments.all %}
-    <a class="message-attachment" href="{{ attachment.file.url }}"><span aria-hidden="true">↗</span> {{ attachment.file.name }}</a>
+    {% if attachment.is_image %}
+      <a class="message-image-link" href="{{ attachment.file.url }}" target="_blank" rel="noopener">
+        <img class="message-image" src="{{ attachment.file.url }}" alt="Изображение в сообщении" loading="lazy">
+      </a>
+    {% else %}
+      <a class="message-attachment" href="{{ attachment.file.url }}"><span aria-hidden="true">↗</span> {{ attachment.file.name }}</a>
+    {% endif %}
   {% endfor %}
 </article>

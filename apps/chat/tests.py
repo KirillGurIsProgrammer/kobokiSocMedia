@@ -1,7 +1,9 @@
+import tempfile
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .models import Conversation
@@ -73,6 +75,27 @@ class ChatViewsTests(TestCase):
         self.assertContains(response, "chat-form-actions")
         self.assertContains(response, "Прикрепить файл")
         self.assertContains(response, 'placeholder="Напишите сообщение')
+
+    def test_image_attachments_render_inline_in_dialog(self):
+        self.client.force_login(self.alice)
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            send_message(
+                self.dialog,
+                self.alice,
+                file=SimpleUploadedFile("cover.PNG", b"image-bytes", content_type="image/png"),
+            )
+            send_message(
+                self.dialog,
+                self.bob,
+                file=SimpleUploadedFile("voice.mp3", b"audio-bytes", content_type="audio/mpeg"),
+            )
+
+            response = self.client.get(reverse("chat:dialog", args=[self.dialog.pk]))
+
+        self.assertContains(response, '<img class="message-image"')
+        self.assertContains(response, "Изображение в сообщении")
+        self.assertContains(response, 'class="message-attachment"')
+        self.assertContains(response, "voice.mp3")
 
     def test_anonymous_home_page_redirects_to_site_login(self):
         response = self.client.get("/")
