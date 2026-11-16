@@ -42,7 +42,6 @@ def _render_library(request, owner):
         "recent_tracks": recent_tracks[:5],
         "my_playlists": services.list_user_playlists(request.user)[:3] if owner == request.user else [],
         "show_track_menu": owner == request.user,
-        "show_all_recommendations": request.GET.get("all") == "recommendations",
         "albums": owner.albums.annotate(track_count=Count("tracks")),
         "q": q,
     })

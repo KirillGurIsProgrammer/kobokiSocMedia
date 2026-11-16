@@ -29,11 +29,10 @@
         <section class="music-section" id="recommendations">
             <div class="music-section-heading">
                 <h2>Рекомендации</h2>
-                <a class="music-section-link" href="{% url 'music:library' %}?all=recommendations{% if q %}&amp;q={{ q|urlencode }}{% endif %}">Показать все</a>
             </div>
             <div class="music-track-list" data-track-list>
                 {% for track in discover_tracks %}
-                    {% if show_all_recommendations or forloop.counter <= 4 %}{% include "music/_track_row.html" %}{% endif %}
+                    {% include "music/_track_row.html" %}
                 {% empty %}
                     <div class="music-empty"><strong>Пока нет рекомендаций</strong><p>Здесь появятся треки других участников.</p></div>
                 {% endfor %}

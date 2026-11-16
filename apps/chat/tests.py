@@ -61,6 +61,19 @@ class ChatViewsTests(TestCase):
         self.client.force_login(other)
         self.assertEqual(self.client.get(reverse("chat:dialog", args=[self.dialog.pk])).status_code, 404)
 
+    def test_dialog_renders_styled_messages_and_composer(self):
+        send_message(self.dialog, self.alice, "Привет, Боб!")
+        self.client.force_login(self.alice)
+
+        response = self.client.get(reverse("chat:dialog", args=[self.dialog.pk]))
+
+        self.assertContains(response, "message-card--mine")
+        self.assertContains(response, "Привет, Боб!")
+        self.assertContains(response, "data-chat-messages")
+        self.assertContains(response, "chat-form-actions")
+        self.assertContains(response, "Прикрепить файл")
+        self.assertContains(response, 'placeholder="Напишите сообщение')
+
     def test_anonymous_home_page_redirects_to_site_login(self):
         response = self.client.get("/")
         self.assertRedirects(response, "/accounts/login/?next=/")

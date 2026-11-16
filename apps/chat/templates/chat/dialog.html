@@ -6,7 +6,7 @@
       <h1>Диалог</h1>
       <a href="{% url 'chat:inbox' %}">← Все диалоги</a>
     </div>
-    <div class="messages">
+    <div class="messages" data-chat-messages>
       {% for message in conversation.messages.all %}
         {% include "chat/_message.html" with message=message %}
       {% empty %}
@@ -17,8 +17,16 @@
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
       {{ form.text }}
-      {{ form.file }}
-      <button class="button button--small" type="submit">Отправить ↗</button>
+      {% if form.text.errors %}<div class="chat-field-errors">{{ form.text.errors }}</div>{% endif %}
+      <div class="chat-form-actions">
+        <label class="chat-attachment" for="{{ form.file.id_for_label }}">
+          <span class="chat-attachment-icon" aria-hidden="true">＋</span>
+          <span data-chat-file-label>Прикрепить файл</span>
+          {{ form.file }}
+        </label>
+        <button class="button button--small" type="submit">Отправить <span aria-hidden="true">↗</span></button>
+      </div>
+      {% if form.file.errors %}<div class="chat-field-errors">{{ form.file.errors }}</div>{% endif %}
     </form>
   </div>
 </section>

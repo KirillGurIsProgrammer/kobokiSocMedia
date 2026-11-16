@@ -201,9 +201,18 @@
     document.addEventListener("change", (event) => {
         const form = event.target.closest("[data-review-form]");
         if (form && event.target.matches('input[name="rating"]')) updateReviewSubmit(form);
+
+        const fileInput = event.target.closest(".chat-file-input");
+        if (fileInput) {
+            const label = fileInput.closest(".chat-attachment")?.querySelector("[data-chat-file-label]");
+            if (label) label.textContent = fileInput.files?.[0]?.name || "Прикрепить файл";
+        }
     });
     document.addEventListener("kobokiPageLoaded", () => {
         document.querySelectorAll("[data-review-form]").forEach(updateReviewSubmit);
+        document.querySelectorAll("[data-chat-messages]").forEach((messages) => {
+            messages.scrollTop = messages.scrollHeight;
+        });
     });
 
     document.addEventListener("submit", (event) => {

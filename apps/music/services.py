@@ -125,7 +125,7 @@ def search_tracks(owner, query="", *, user=None):
 
 
 def get_discover_tracks(user, query=""):
-    tracks = get_recommendations(user, limit=100)
+    tracks = get_recommendations(user, limit=None)
     if query:
         query = query.casefold()
         tracks = [track for track in tracks if query in track.title.casefold() or query in track.artist.casefold()]
@@ -133,8 +133,8 @@ def get_discover_tracks(user, query=""):
 
 
 def get_recommendations(user, limit=20):
-    """Recommend tracks by shared tags and artists, with a low-like fallback."""
-    if limit <= 0:
+    """Rank community tracks; an unlimited result includes the full catalog."""
+    if limit is not None and limit <= 0:
         return []
     liked = list(
         Like.objects.filter(user=user)
@@ -143,7 +143,7 @@ def get_recommendations(user, limit=20):
     )
     if liked:
         taste_tracks = [like.track for like in liked]
-        excluded_ids = {like.track_id for like in liked}
+        excluded_ids = {like.track_id for like in liked} if limit is not None else set()
     else:
         taste_ids = set(
             NowPlaying.objects.filter(user=user).values_list("track_id", flat=True)
@@ -167,7 +167,7 @@ def get_recommendations(user, limit=20):
             tag_names[relation.tag_id] = relation.tag.name
 
     candidates = Track.objects.exclude(owner=user).exclude(pk__in=excluded_ids)
-    if artists or tag_ids:
+    if limit is not None and (artists or tag_ids):
         candidate_filter = Q()
         if artists:
             candidate_filter |= Q(artist__in=artists)
@@ -176,9 +176,7 @@ def get_recommendations(user, limit=20):
         candidates = candidates.filter(candidate_filter).distinct()
 
     candidates = list(
-        candidates.select_related("owner", "album")
-        .prefetch_related("track_tags__tag")
-        .annotate(like_count=Count("likes", distinct=True))
+        with_like_data(candidates.select_related("owner", "album"), user)
     )
     ranked = []
     for track in candidates:
@@ -202,6 +200,9 @@ def get_recommendations(user, limit=20):
             track.like_count,
         )
     )
+
+    if limit is None:
+        return ranked
 
     result = []
     author_counts = {}

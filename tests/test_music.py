@@ -468,6 +468,40 @@ class MusicTests(TestCase):
         self.assertEqual(recommendations[0], low_likes)
         self.assertEqual(recommendations[0].recommendation_reason, "Новая загрузка")
 
+    def test_discover_shows_all_tracks_from_other_users(self):
+        self.track.artist = "Личный вкус"
+        self.track.save(update_fields=("artist",))
+        Like.objects.create(user=self.alice, track=self.track)
+        tracks = [
+            Track(
+                owner=self.bob,
+                title=f"Не похожий трек {index}",
+                artist="Другой исполнитель",
+                audio_file=f"tracks/discover-{index}.mp3",
+            )
+            for index in range(105)
+        ]
+        Track.objects.bulk_create(tracks)
+        liked_track = self._track(self.bob, "Уже понравился")
+        Like.objects.create(user=self.alice, track=liked_track)
+
+        discovered = services.get_discover_tracks(self.alice)
+        self.client.force_login(self.alice)
+        response = self.client.get(reverse("music:library"))
+
+        self.assertEqual(len(discovered), 106)
+        self.assertIn(liked_track, discovered)
+        liked_recommendation = next(
+            track for track in discovered if track.pk == liked_track.pk
+        )
+        self.assertTrue(liked_recommendation.liked_by_user)
+        self.assertCountEqual(
+            [track.pk for track in response.context["discover_tracks"]],
+            [track.pk for track in discovered],
+        )
+        self.assertContains(response, f'data-track-id="{tracks[-1].pk}"')
+        self.assertEqual(response.content.count(b"data-track-row"), 108)
+
     def test_recommendations_use_playlists_when_user_has_no_likes(self):
         self.track.artist = "Любимый исполнитель"
         self.track.save(update_fields=("artist",))

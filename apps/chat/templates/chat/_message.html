@@ -1,8 +1,10 @@
 <article class="message-card{% if message.sender == user %} message-card--mine{% endif %}">
-  <span class="message-author">{{ message.sender.username }}</span>
-  <time class="message-time" datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:'d.m.Y H:i' }}</time>
+  <div class="message-meta">
+    <span class="message-author">{{ message.sender.username }}</span>
+    <time class="message-time" datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:'d.m.Y H:i' }}</time>
+  </div>
   {% if message.text %}<p class="message-text">{{ message.text }}</p>{% endif %}
   {% for attachment in message.attachments.all %}
-    <a class="message-attachment" href="{{ attachment.file.url }}">📎 {{ attachment.file.name }}</a>
+    <a class="message-attachment" href="{{ attachment.file.url }}"><span aria-hidden="true">↗</span> {{ attachment.file.name }}</a>
   {% endfor %}
 </article>
